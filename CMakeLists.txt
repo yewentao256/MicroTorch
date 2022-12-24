@@ -1,22 +1,28 @@
+# check mimimum cmake version
 cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
 
-set(LIB_NAME TinyTorch)
+# global LIB_NAME and setup project
+set(LIB_NAME tinytorch)
 project (${LIB_NAME} VERSION 1.0.0 LANGUAGES CXX)
 
-
-
-############# C++ Standard and Filesystem stuff ###############
-
+# C++ Standard and Compile stuff
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_FLAGS "-O3")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
+# find all the src files
+file (GLOB SRC_FILES "src/*.cpp")
+file (GLOB HEADER_FILES "src/*.hpp")
+file (GLOB PYTHON_FILES "python/*.cpp")
 
-
-############# SOURCE ###############
-
-add_subdirectory(src)
-
-
+# register to pybind11
+add_subdirectory(pybind11)
+pybind11_add_module(${LIB_NAME}  
+	${SRC_FILES}
+	${HEADER_FILES}
+    ${PYTHON_FILES}
+)
 
 
 
