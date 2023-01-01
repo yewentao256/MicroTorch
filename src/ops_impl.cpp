@@ -3,9 +3,6 @@
 #include "tensor.hpp"
 namespace tinytorch {
 
-static int a = 3;
-a++;
-
 // Tensor Create operators
 Tensor zero(int size) {
   Tensor t(size);
@@ -23,7 +20,7 @@ Tensor ones(int size) {
 }
 Tensor rand(int size) {
   Tensor t(size);
-  static std::mt19937 mersenne_engine{1008611};
+  static std::mt19937 mersenne_engine{572547235};
   std::uniform_real_distribution<float> dist{0.f, 1.f};
 
   for (size_t i = 0; i < t.size(); i++) {

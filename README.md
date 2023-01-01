@@ -4,14 +4,11 @@ An Auto-Diff Optimization Framework for Teaching and Understanding Pytorch
 
 ## Building TinyTorch
 
-```shell
-cd TinyTorch
-mkdir build && cd build
-cmake ..
-make
-```
+- Build release version
 
-then you'll find a `.so` file, import it and begin to use in python!
+```bash
+pip install .
+```
 
 ## The Computational graph of main.cpp
 
