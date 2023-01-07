@@ -3,6 +3,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+import logging
 
 from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
@@ -28,12 +29,14 @@ class CMakeExtension(Extension):
 class CMakeBuild(build_ext):
     def build_extension(self, ext: CMakeExtension) -> None:
         # Must be in this form due to bug in .resolve() only fixed in Python 3.10+
-        ext_fullpath = Path.cwd() / self.get_ext_fullpath(ext.name)  # type: ignore[no-untyped-call]
+        ext_fullpath = Path.cwd() / self.get_ext_fullpath(ext.name)
         extdir = ext_fullpath.parent.resolve()
 
         # Using this requires trailing slash for auto-detection & inclusion of
         # auxiliary "native" libs
-        debug = int(os.environ.get("DEBUG", 1)) if self.debug is None else self.debug
+
+        debug = int(os.environ.get("DEBUG", 0)
+                    ) if self.debug is None else self.debug
         cfg = "Debug" if debug else "Release"
 
         # Set Python_EXECUTABLE instead if you use PYBIND11_FINDPYTHON
@@ -45,24 +48,13 @@ class CMakeBuild(build_ext):
             f"-DCMAKE_BUILD_TYPE={cfg}",  # not used on MSVC, but no harm
         ]
         build_args = []
-        # Adding CMake arguments set as environment variable
-        # (needed e.g. to build for ARM OSx on conda-forge)
-        if "CMAKE_ARGS" in os.environ:
-            cmake_args += [item for item in os.environ["CMAKE_ARGS"].split(" ") if item]
 
-
-        cmake_args += ["-A", PLAT_TO_CMAKE[self.plat_name]]
-
-        cmake_args += [
-            f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{cfg.upper()}={extdir}"
-        ]
-        build_args += ["--config", cfg]
-
-        if sys.platform.startswith("darwin"):
-            # Cross-compile support for macOS - respect ARCHFLAGS if set
-            archs = re.findall(r"-arch (\S+)", os.environ.get("ARCHFLAGS", ""))
-            if archs:
-                cmake_args += ["-DCMAKE_OSX_ARCHITECTURES={}".format(";".join(archs))]
+        if self.compiler.compiler_type == "msvc":
+            cmake_args += ["-A", PLAT_TO_CMAKE[self.plat_name]]
+            cmake_args += [
+                f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{cfg.upper()}={extdir}"
+            ]
+            build_args += ["--config", cfg]
 
         # Set CMAKE_BUILD_PARALLEL_LEVEL to control the parallel build level
         # across all generators.
@@ -77,16 +69,21 @@ class CMakeBuild(build_ext):
         if not build_temp.exists():
             build_temp.mkdir(parents=True)
 
-        subprocess.run(
-            ["cmake", ext.sourcedir] + cmake_args, cwd=build_temp, check=True
+        logging.info('######sub process running info######')
+        p1 = subprocess.run(
+            ["cmake", ext.sourcedir] + cmake_args, cwd=build_temp, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
         )
-        subprocess.run(
-            ["cmake", "--build", "."] + build_args, cwd=build_temp, check=True
+        logging.info(f'Using command: `{" ".join(p1.args)}`')
+        logging.info(p1.stdout)
+        p1.check_returncode()
+        p2 = subprocess.run(
+            ["cmake", "--build", "."] + build_args, cwd=build_temp, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
         )
-        with open('log.txt', 'w') as f:
-            f.write(str(self.compiler.compiler_type) + '\n')
-            f.write(str(["cmake", ext.sourcedir] + cmake_args) + '\n')
-            f.write(str(["cmake", "--build", "."] + build_args))
+        logging.info(f'Using command: `{" ".join(p2.args)}`')
+        logging.info(p2.stdout)
+        p2.check_returncode()
+        logging.info('######end of sub process running info######')
+
 
 setup(
     name="tinytorch",

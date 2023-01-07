@@ -6,6 +6,7 @@ namespace tinytorch {
 Tensor zero(int size);
 Tensor ones(int size);
 Tensor rand(int size);
+std::string repr(Tensor t);
 std::ostream& operator<<(std::ostream& stream, Tensor t);
 
 // operators+

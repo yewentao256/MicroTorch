@@ -1,15 +1,13 @@
 import tinytorch
 
 if __name__ == '__main__':
-
-    observation = tinytorch.rand(10)
-    target = tinytorch.rand(10)
+    observation = tinytorch.rand(30)
+    target = tinytorch.rand(30)
     print(f'observation: {observation}')
     print(f'target: {target}')
-
     params = []
     for i in range(4):
-        params.append(tinytorch.rand(10))
+        params.append(tinytorch.rand(30))
         tinytorch.make_parameter(params[-1])
         print(f'params: {params[-1]}')
 

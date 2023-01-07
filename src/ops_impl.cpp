@@ -29,11 +29,30 @@ Tensor rand(int size) {
   return t;
 }
 
+std::string repr(Tensor t) {
+  std::ostringstream s;
+  s << t;
+  return s.str();
+}
+
 std::ostream &operator<<(std::ostream &stream, Tensor t) {
-  stream << "[Tensor size=" << t.size() << "]: ";
-  for (size_t i = 0; i < t.size(); i++) {
-    stream << std::setw(8) << t[i] << " ";
+  int size = t.size();
+  stream << "<tinytorch.Tensor size=" << size << ">: [";
+  if (size > 20) {
+    // only print several numbers
+    for (size_t i = 0; i < 10; i++) {
+      stream << std::setw(8) << t[i] << " ";
+    }
+    stream << " ... ";
+    for (size_t i = size - 10; i < size; i++) {
+      stream << std::setw(8) << t[i] << " ";
+    }
+  } else{
+    for (size_t i = 0; i < size; i++) {
+      stream << std::setw(8) << t[i] << " ";
+    }
   }
+  stream << "]";
   return stream;
 }
 

@@ -2,12 +2,26 @@
 
 An Auto-Diff Optimization Framework for Teaching and Understanding Pytorch
 
+## Through This Project, You Can
+
+- Understand auto-diff and backpropagation
+- Know how to use `pybind11`
+- Get the idea of `cmake`, `pip` and package installation.
+
 ## Building TinyTorch
 
-- Build release version
+- clone the repository:
+
+`git clone git@github.com:yewentao256/TinyTorch.git --recursive`
+
+Note: `--recursive` is needed if you don't have `pybind11` installed correctly
+
+- Build Tinytorch
 
 ```bash
 pip install .
+pip install . -v        # to see more information about installation
+DEBUG=1 pip install .   # to install the debug version(in order to use gdb/lldb)
 ```
 
 ## The Computational graph of main.cpp

@@ -6,6 +6,7 @@
 #include <iostream>
 #include <memory>
 #include <random>
+#include <sstream>
 #include <vector>
 
 namespace tinytorch {
@@ -29,7 +30,7 @@ struct Tensor {
   Tensor(std::vector<float> data) : impl_(std::make_shared<TensorImpl>(data)) {}
 
   // operator override
-  float& operator[](int idx) { return (*impl_).data[idx]; }
+  float &operator[](int idx) { return (*impl_).data[idx]; }
 
   // tensor functions
   int size() { return (*impl_).data.size(); }

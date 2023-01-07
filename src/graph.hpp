@@ -45,6 +45,10 @@ struct Node {
   // Computes and returns the gradients of the input tensor of the forward
   // operator. The input is the gradient of the forward output
   virtual std::vector<Tensor> backward(std::vector<Tensor> forward_output) = 0;
+
+  // for base class, it's recommended to use virtual deconstructor
+  // so as to avoid memory leak
+  virtual ~Node() = default;
 };
 
 template <typename T>
