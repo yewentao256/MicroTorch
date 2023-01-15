@@ -2,12 +2,20 @@
 #include "ops.hpp"
 
 #include "graph.hpp"
+#include "cuda_impl.hpp"
 
 namespace tinytorch {
 struct AddNode : public FunctionNode<AddNode> {
   static std::vector<Tensor> forward(Context &ctx, std::vector<Tensor> t_lst) {
-    // since we only use a+b, so for add operator, it only has two tensor
-    auto result = add_impl(t_lst[0], t_lst[1]);
+    std::string backend = "device";
+    Tensor result;
+    if (backend == "host") {
+      // since we only use a+b, so for add operator, it only has two tensor
+      result = add_impl(t_lst[0], t_lst[1]);
+    } else {
+      result = *add_cuda_impl(&t_lst[0], &t_lst[1]);
+    }
+    
     return {result};
   }
   static std::vector<Tensor> backward(Context &ctx, std::vector<Tensor> grad) {
