@@ -57,6 +57,8 @@ struct Tensor {
   }
   std::shared_ptr<Edge> getEdge() { return (*impl_).edge; };
   void setEdge(std::shared_ptr<Edge> edge) { (*impl_).edge = edge; };
+
+  float* data() {return impl_->data.data();};
 };
 
 }  // namespace tinytorch

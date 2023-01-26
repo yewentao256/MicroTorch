@@ -6,8 +6,8 @@ namespace tinytorch {
 
 // Internal implementation of forward/backward
 // Should NOT be called by the user
-Tensor * add_cuda_impl(Tensor *a, Tensor *b);
-std::vector<Tensor> add_backward_cuda_impl(Tensor *grad_output);
+Tensor add_cuda_impl(Tensor a, Tensor b);
+std::vector<Tensor> add_backward_cuda_impl(Tensor grad_output);
 
 /* Tensor sub_impl(Tensor a, Tensor b);
 std::vector<Tensor> sub_backward_impl(Tensor grad_output);

@@ -12,6 +12,7 @@ if __name__ == '__main__':
         print(f'params: {params[-1]}')
 
     def model(x: tinytorch.Tensor) -> tinytorch.Tensor:
+        # import pdb;pdb.set_trace()
         x = x * params[0]
         x = x + params[1]
         x = x * params[2]

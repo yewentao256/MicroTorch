@@ -13,7 +13,7 @@ struct AddNode : public FunctionNode<AddNode> {
       // since we only use a+b, so for add operator, it only has two tensor
       result = add_impl(t_lst[0], t_lst[1]);
     } else {
-      result = *add_cuda_impl(&t_lst[0], &t_lst[1]);
+      result = add_cuda_impl(t_lst[0], t_lst[1]);
     }
     
     return {result};
