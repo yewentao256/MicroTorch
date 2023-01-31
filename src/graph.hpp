@@ -6,6 +6,18 @@
 
 namespace tinytorch {
 
+
+inline void infer_tensor(std::vector<Tensor> t_lst) {
+  size_t len_t_lst = t_lst.size();
+  std::string arch = t_lst[0].arch();
+  size_t size = t_lst[0].size();
+  for(size_t i = 1; i < len_t_lst; i++){
+    assert(t_lst[i].arch() == arch);
+    assert(t_lst[i].size() == size);
+    // TODO: support broadcast
+  }
+}
+
 struct Node;
 
 struct Edge {
@@ -37,7 +49,7 @@ struct Node {
   // Variables that are required for the backward pass
   Context context;
 
-  int num_input_of_backward;
+  size_t num_input_of_backward;
 
   // Create a node and give it a unique increasing sequence number
   Node() : sequence_number(current_seq_nr++) {}
@@ -55,16 +67,17 @@ template <typename T>
 struct FunctionNode : public Node {
   FunctionNode() {}
   static std::vector<Tensor> forward_and_build_graph(
-      std::vector<Tensor> t_list) {
+      std::vector<Tensor> t_lst) {
+    infer_tensor(t_lst);   
     // Create node and set next edge
     auto node = std::make_shared<FunctionNode<T>>();
-    for (size_t i = 0; i < t_list.size(); i++) {
+    for (size_t i = 0; i < t_lst.size(); i++) {
       // Here we bind the edge of tensor before to the current node
-      (*node).next.push_back(t_list[i].getEdge());
+      (*node).next.push_back(t_lst[i].getEdge());
     }
 
     // forward
-    auto result = T::forward((*node).context, t_list);
+    auto result = T::forward((*node).context, t_lst);
 
     node->num_input_of_backward = result.size();
 

@@ -39,7 +39,8 @@ void export_tensor_class(py::module &m)
         .def("clear_grad", &Tensor::clearGrad)
         .def("grad", &Tensor::grad)
         .def("add_", &Tensor::addInplace)
-        .def("add_grad_", &Tensor::addGradInplace);
+        .def("add_grad_", &Tensor::addGradInplace)
+        .def("cuda", &Tensor::cuda);
 }
 
 void export_tensor_function(py::module &m)

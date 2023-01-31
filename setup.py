@@ -37,6 +37,7 @@ class CMakeBuild(build_ext):
 
         debug = int(os.environ.get("DEBUG", 0)
                     ) if self.debug is None else self.debug
+        use_cuda = os.environ.get("CUDA", "OFF")
         cfg = "Debug" if debug else "Release"
 
         # Set Python_EXECUTABLE instead if you use PYBIND11_FINDPYTHON
@@ -46,6 +47,7 @@ class CMakeBuild(build_ext):
             f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={extdir}{os.sep}",
             f"-DPYTHON_EXECUTABLE={sys.executable}",
             f"-DCMAKE_BUILD_TYPE={cfg}",  # not used on MSVC, but no harm
+            f"-DCUDA={use_cuda}",
         ]
         build_args = []
 

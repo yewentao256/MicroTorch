@@ -4,21 +4,21 @@
 namespace tinytorch {
 
 // Tensor Create operators
-Tensor zero(int size) {
+Tensor zero(size_t size) {
   Tensor t(size);
   for (size_t i = 0; i < t.size(); i++) {
     t[i] = 0;
   }
   return t;
 }
-Tensor ones(int size) {
+Tensor ones(size_t size) {
   Tensor t(size);
   for (size_t i = 0; i < t.size(); i++) {
     t[i] = 1;
   }
   return t;
 }
-Tensor rand(int size) {
+Tensor rand(size_t size) {
   Tensor t(size);
   static std::mt19937 mersenne_engine{572547235};
   std::uniform_real_distribution<float> dist{0.f, 1.f};
@@ -36,8 +36,8 @@ std::string repr(Tensor t) {
 }
 
 std::ostream &operator<<(std::ostream &stream, Tensor t) {
-  int size = t.size();
-  stream << "<tinytorch.Tensor size=" << size << ">: [";
+  size_t size = t.size();
+  stream << "<tinytorch.Tensor size=" << size << ", device=" << t.arch() << ">: [";
   if (size > 20) {
     // only print several numbers
     for (size_t i = 0; i < 10; i++) {
@@ -135,7 +135,7 @@ Tensor sum_impl(Tensor a) {
   }
   return result;
 }
-std::vector<Tensor> sum_backward_impl(int input_size, Tensor grad_output) {
+std::vector<Tensor> sum_backward_impl(size_t input_size, Tensor grad_output) {
   assert(grad_output.size() == 1);
   Tensor result(input_size);
   for (size_t i = 0; i < input_size; i++) {

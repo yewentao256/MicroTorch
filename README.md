@@ -22,6 +22,9 @@ Note: `--recursive` is needed if you don't have `pybind11` installed correctly
 pip install .
 pip install . -v        # to see more information about installation
 DEBUG=1 pip install .   # to install the debug version(in order to use gdb/lldb)
+CUDA=1 pip install .    # to install the cuda version
+
+DEBUG=1 CUDA=1 pip install . -v
 ```
 
 ## The Computational graph of main.cpp
@@ -34,3 +37,5 @@ DEBUG=1 pip install .   # to install the debug version(in order to use gdb/lldb)
 - [Pybind11](https://pybind11.readthedocs.io/en/stable/index.html)
 - [Cmake_cpp_pybind11_tutorial](https://github.com/smrfeld/cmake_cpp_pybind11_tutorial)
 - [Pytorch](https://github.com/pytorch/pytorch)
+- [Cuda_samples](https://github.com/NVIDIA/cuda-samples)
+- [Simple-tensor](https://github.com/XuHQ1997/simple-tensor)

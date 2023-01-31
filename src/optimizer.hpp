@@ -18,7 +18,7 @@ struct SGDOptimizer  // stochastic gradient descent
   SGDOptimizer(std::vector<Tensor> t_lst, float lr) : params(t_lst), lr(lr) {
     // initialize velocities
     velocities.resize(t_lst.size());
-    for (int i = 0; i < t_lst.size(); ++i) {
+    for (size_t i = 0; i < t_lst.size(); ++i) {
       velocities[i] = zero(t_lst[i].size());
     }
   }
@@ -39,9 +39,9 @@ struct SGDOptimizer  // stochastic gradient descent
       }
       for (size_t i = 0; i < param.size(); i++) {
         assert(param.grad().size() == param.size());
-        float &w = param[i];
-        float &g = param.grad()[i];
-        float &b = velocity[i];
+        auto &w = param[i];
+        auto g = param.grad()[i];
+        auto &b = velocity[i];
         // sgd with nesterov momentum, equation from pytorch
         // see https://pytorch.org/docs/stable/generated/torch.optim.SGD.html
         if (momentum != 0) {
@@ -56,7 +56,6 @@ struct SGDOptimizer  // stochastic gradient descent
             g = b;
           }
         }
-
         w = w - lr * g;
       }
     }

@@ -1,6 +1,7 @@
 import tinytorch
 
 if __name__ == '__main__':
+    import pdb;pdb.set_trace()
     observation = tinytorch.rand(30)
     target = tinytorch.rand(30)
     print(f'observation: {observation}')
@@ -9,10 +10,9 @@ if __name__ == '__main__':
     for i in range(4):
         params.append(tinytorch.rand(30))
         tinytorch.make_parameter(params[-1])
-        print(f'params: {params[-1]}')
 
     def model(x: tinytorch.Tensor) -> tinytorch.Tensor:
-        # import pdb;pdb.set_trace()
+
         x = x * params[0]
         x = x + params[1]
         x = x * params[2]

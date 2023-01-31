@@ -1,25 +1,45 @@
 
 #include "ops.hpp"
 
-#include "graph.hpp"
 #include "cuda_impl.hpp"
+#include "graph.hpp"
+#include "log.hpp"
+
+#ifndef USE_CUDA
+#define DISPATCH_OP_AUTO(host_func, device_func, ...)              \
+  log_once([]() {},                                                \
+           []() {                                                  \
+             std::cout << "LOG: using host func `" #host_func "` " \
+                       << std::endl;                               \
+           });                                                     \
+  auto result = host_func(__VA_ARGS__);
+#else
+#define DISPATCH_OP_AUTO(host_func, device_func, ...)                   \
+  log_once([]() {},                                                     \
+           []() {                                                       \
+             std::cout << "LOG: using device func ` " #device_func "` " \
+                       << std::endl;                                    \
+           });                                                          \
+  auto result = device_func(__VA_ARGS__);
+#endif
 
 namespace tinytorch {
 struct AddNode : public FunctionNode<AddNode> {
   static std::vector<Tensor> forward(Context &ctx, std::vector<Tensor> t_lst) {
-    std::string backend = "device";
+    // DISPATCH_OP_AUTO(add_impl, add_cuda_impl, t_lst[0], t_lst[1]);
     Tensor result;
-    if (backend == "host") {
-      // since we only use a+b, so for add operator, it only has two tensor
+    if (t_lst[0].arch() != "cuda"){
       result = add_impl(t_lst[0], t_lst[1]);
-    } else {
+    }
+    else {
       result = add_cuda_impl(t_lst[0], t_lst[1]);
     }
-    
     return {result};
   }
   static std::vector<Tensor> backward(Context &ctx, std::vector<Tensor> grad) {
     auto grad_a = add_backward_impl(grad[0]);
+    // DISPATCH_OP_AUTO(add_backward_impl, add_backward_cuda_impl, grad[0]);
+
     return grad_a;
   }
 };

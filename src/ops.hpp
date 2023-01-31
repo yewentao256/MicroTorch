@@ -3,9 +3,9 @@
 #include "tensor.hpp"
 namespace tinytorch {
 // tensor generation
-Tensor zero(int size);
-Tensor ones(int size);
-Tensor rand(int size);
+Tensor zero(size_t size);
+Tensor ones(size_t size);
+Tensor rand(size_t size);
 std::string repr(Tensor t);
 std::ostream& operator<<(std::ostream& stream, Tensor t);
 
@@ -29,7 +29,7 @@ Tensor square_impl(Tensor a);
 std::vector<Tensor> square_backward_impl(Tensor a, Tensor grad_output);
 
 Tensor sum_impl(Tensor a);
-std::vector<Tensor> sum_backward_impl(int input_size, Tensor grad_output);
+std::vector<Tensor> sum_backward_impl(size_t input_size, Tensor grad_output);
 
 // Basic Tensor Math operators
 // These operators should be called by the user and support Auto-Diff

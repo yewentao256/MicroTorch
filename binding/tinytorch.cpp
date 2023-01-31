@@ -6,6 +6,7 @@ void export_tensor_class(py::module &m);
 void export_tensor_function(py::module &m);
 void export_graph_function(py::module &m);
 void export_optimizer_class(py::module &m);
+void export_tensor2_class(py::module &m);
 
 PYBIND11_MODULE(tinytorch, m) {
     m.doc() = "TinyTorch: A simplest pytorch implementation for learning";
@@ -14,5 +15,6 @@ PYBIND11_MODULE(tinytorch, m) {
     export_tensor_function(m);
     export_graph_function(m);
     export_optimizer_class(m);
+    export_tensor2_class(m);
 }
 
