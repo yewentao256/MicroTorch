@@ -1,5 +1,4 @@
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -73,16 +72,16 @@ class CMakeBuild(build_ext):
 
         logging.info('######sub process running info######')
         p1 = subprocess.run(
-            ["cmake", ext.sourcedir] + cmake_args, cwd=build_temp, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+            ["cmake", ext.sourcedir] + cmake_args, cwd=build_temp, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
         )
         logging.info(f'Using command: `{" ".join(p1.args)}`')
-        logging.info(p1.stdout)
+        logging.info(p1.stdout.decode('utf-8', 'ignore'))
         p1.check_returncode()
         p2 = subprocess.run(
-            ["cmake", "--build", "."] + build_args, cwd=build_temp, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+            ["cmake", "--build", "."] + build_args, cwd=build_temp, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
         )
         logging.info(f'Using command: `{" ".join(p2.args)}`')
-        logging.info(p2.stdout)
+        logging.info(p2.stdout.decode('utf-8', 'ignore'))
         p2.check_returncode()
         logging.info('######end of sub process running info######')
 
