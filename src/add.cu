@@ -17,9 +17,9 @@ __global__ void add(size_t n, float *a, float *b, float *out) {
 
 Tensor add_cuda_impl(Tensor a, Tensor b) {
   Tensor result(a.size());
-  float *a_ptr = a.data();
-  float *b_ptr = b.data();
-  float *out_ptr = result.data();
+  float *a_ptr = a.data_ptr();
+  float *b_ptr = b.data_ptr();
+  float *out_ptr = result.data_ptr();
   size_t size = sizeof(float) * result.size();
 
   float *a_ptr_cuda, *b_ptr_cuda, *out_ptr_cuda;
@@ -58,9 +58,9 @@ __global__ void add_backward(size_t n, float *grad, float *result_a,
 std::vector<Tensor> add_backward_cuda_impl(Tensor grad) {
   Tensor result_a(grad.size());
   Tensor result_b(grad.size());
-  float *grad_ptr = grad.data();
-  float *result_a_ptr = result_a.data();
-  float *result_b_ptr = result_b.data();
+  float *grad_ptr = grad.data_ptr();
+  float *result_a_ptr = result_a.data_ptr();
+  float *result_b_ptr = result_b.data_ptr();
   size_t size = sizeof(float) * grad.size();
 
   float *grad_ptr_cuda, *result_a_ptr_cuda, *result_b_ptr_cuda;

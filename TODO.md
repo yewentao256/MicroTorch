@@ -11,6 +11,10 @@
 - 引入注册op，执行op机制（带队列——引擎）
 - cuda算子再引入一个队列机制
 - 重构tensor，不再使用std::vector
+    按照https://zhuanlan.zhihu.com/p/340228853和simple tensor逐步支持
+    包括transpose、view、contiguous、索引、切片等操作
+    记得加上单元测试（如测试取值等)
+    最后把std vector换成float*
 
 小项：
 

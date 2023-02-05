@@ -1,7 +1,7 @@
 import tinytorch
+import time
 
-if __name__ == '__main__':
-    import pdb;pdb.set_trace()
+def test_main():
     observation = tinytorch.rand(30)
     target = tinytorch.rand(30)
     print(f'observation: {observation}')
@@ -31,6 +31,17 @@ if __name__ == '__main__':
         tinytorch.backward(loss)
         optimizer.step()
         print(f'Iter: {i}, Loss: {loss[0]}')
-        
 
-    
+
+def test_cuda():
+    a = tinytorch.rand(600000).cuda()
+    b = tinytorch.rand(600000).cuda()
+    print(a)
+    now = time.time()
+    c = a + b
+    print(c)
+    print(f"time usage: {time.time()- now}")
+
+if __name__ == '__main__':
+    test_main()
+    test_cuda()

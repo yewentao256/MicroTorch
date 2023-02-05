@@ -33,6 +33,7 @@ struct AddNode : public FunctionNode<AddNode> {
     }
     else {
       result = add_cuda_impl(t_lst[0], t_lst[1]);
+      result.cuda();
     }
     return {result};
   }
