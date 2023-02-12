@@ -4,22 +4,22 @@
 namespace tinytorch {
 
 // Tensor Create operators
-Tensor zero(size_t size) {
-  Tensor t(size);
+Tensor zeros(size_t size, std::string device) {
+  Tensor t(size, device);
   for (size_t i = 0; i < t.size(); i++) {
     t[i] = 0;
   }
   return t;
 }
-Tensor ones(size_t size) {
-  Tensor t(size);
+Tensor ones(size_t size, std::string device) {
+  Tensor t(size, device);
   for (size_t i = 0; i < t.size(); i++) {
     t[i] = 1;
   }
   return t;
 }
-Tensor rand(size_t size) {
-  Tensor t(size);
+Tensor rand(size_t size, std::string device) {
+  Tensor t(size, device);
   static std::mt19937 mersenne_engine{572547235};
   std::uniform_real_distribution<float> dist{0.f, 1.f};
 
@@ -56,12 +56,11 @@ std::ostream &operator<<(std::ostream &stream, Tensor t) {
   return stream;
 }
 
-Tensor add_impl(Tensor a, Tensor b) {
-  Tensor result(a.size());
+template<>
+void add_impl<Host>(Context& ctx, Tensor& a, Tensor& b, Tensor& out) {
   for (size_t i = 0; i < a.size(); i++) {
-    result[i] = a[i] + b[i];
+    out[i] = a[i] + b[i];
   }
-  return result;
 }
 
 std::vector<Tensor> add_backward_impl(Tensor grad_output) {
@@ -75,12 +74,11 @@ std::vector<Tensor> add_backward_impl(Tensor grad_output) {
   return {result_a, result_b};
 }
 
-Tensor sub_impl(Tensor a, Tensor b) {
-  Tensor result(a.size());
+template<>
+void sub_impl<Host>(Context& ctx, Tensor& a, Tensor& b, Tensor& out) {
   for (size_t i = 0; i < a.size(); i++) {
-    result[i] = a[i] - b[i];
+    out[i] = a[i] - b[i];
   }
-  return result;
 }
 
 std::vector<Tensor> sub_backward_impl(Tensor grad_output) {
@@ -93,12 +91,12 @@ std::vector<Tensor> sub_backward_impl(Tensor grad_output) {
   }
   return {result_a, result_b};
 }
-Tensor mult_impl(Tensor a, Tensor b) {
-  Tensor result(a.size());
+
+template<>
+void mult_impl<Host>(Context& ctx, Tensor& a, Tensor& b, Tensor& out) {
   for (size_t i = 0; i < a.size(); i++) {
-    result[i] = a[i] * b[i];
+    out[i] = a[i] * b[i];
   }
-  return result;
 }
 
 std::vector<Tensor> mult_backward_impl(Tensor a, Tensor b, Tensor grad_output) {
@@ -129,7 +127,7 @@ std::vector<Tensor> square_backward_impl(Tensor a, Tensor grad_output) {
 }
 
 Tensor sum_impl(Tensor a) {
-  Tensor result = zero(1);
+  Tensor result = zeros(1);
   for (size_t i = 0; i < a.size(); i++) {
     result[0] += a[i];
   }

@@ -19,7 +19,7 @@ struct SGDOptimizer  // stochastic gradient descent
     // initialize velocities
     velocities.resize(t_lst.size());
     for (size_t i = 0; i < t_lst.size(); ++i) {
-      velocities[i] = zero(t_lst[i].size());
+      velocities[i] = zeros(t_lst[i].size());
     }
   }
 

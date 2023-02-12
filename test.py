@@ -34,8 +34,8 @@ def test_main():
 
 
 def test_cuda():
-    a = tinytorch.rand(600000).cuda()
-    b = tinytorch.rand(600000).cuda()
+    a = tinytorch.rand(30000).cuda()
+    b = tinytorch.rand(30000).cuda()
     print(a)
     now = time.time()
     c = a + b
@@ -43,5 +43,5 @@ def test_cuda():
     print(f"time usage: {time.time()- now}")
 
 if __name__ == '__main__':
-    test_main()
+    # test_main()
     test_cuda()

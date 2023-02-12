@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-#include "cuda_impl.hpp"
+#include "ops.hpp"
 
 namespace tinytorch {
 
@@ -15,12 +15,12 @@ __global__ void add(size_t n, float *a, float *b, float *out) {
   }
 }
 
-Tensor add_cuda_impl(Tensor a, Tensor b) {
-  Tensor result(a.size());
+template<>
+void add_impl<Cuda>(Context& ctx, Tensor& a, Tensor& b, Tensor& out) {
   float *a_ptr = a.data_ptr();
   float *b_ptr = b.data_ptr();
-  float *out_ptr = result.data_ptr();
-  size_t size = sizeof(float) * result.size();
+  float *out_ptr = out.data_ptr();
+  size_t size = sizeof(float) * out.size();
 
   float *a_ptr_cuda, *b_ptr_cuda, *out_ptr_cuda;
   cudaMalloc(&a_ptr_cuda, size);
@@ -32,8 +32,8 @@ Tensor add_cuda_impl(Tensor a, Tensor b) {
   cudaMemcpy(b_ptr_cuda, b_ptr, size, cudaMemcpyHostToDevice);
 
   size_t blockSize = 256;
-  size_t numBlocks = (result.size() + blockSize - 1) / blockSize;  // Ceilling
-  add<<<numBlocks, blockSize>>>(result.size(), a_ptr_cuda, b_ptr_cuda,
+  size_t numBlocks = (out.size() + blockSize - 1) / blockSize;  // Ceilling
+  add<<<numBlocks, blockSize>>>(out.size(), a_ptr_cuda, b_ptr_cuda,
                                 out_ptr_cuda);
 
   cudaMemcpy(out_ptr, out_ptr_cuda, size, cudaMemcpyDeviceToHost);
@@ -41,9 +41,20 @@ Tensor add_cuda_impl(Tensor a, Tensor b) {
   cudaFree(a_ptr_cuda);
   cudaFree(b_ptr_cuda);
   cudaFree(out_ptr_cuda);
-  return result;
 }
 
+/* template<>
+void partialSum<Cuda>(Context& ctx, const DArrayLite& in,
+        DArrayLite& out, size_t dim) {
+    if (reduce::getReducePrim(in) == Prim::Int64) {
+        dispatch_int_with<CudaPartialReduceAdaptor, Prim::Bool, int64_t>
+            (in.elemType(), ctx, in, out, dim, reduce::Add(), Id(), Id());
+    } else {
+        dispatch_real<CudaPartialReduceAdaptor>
+            (in.elemType(), ctx, in, out, dim, Add(), Id(), Id());
+    }
+}
+ */
 __global__ void add_backward(size_t n, float *grad, float *result_a,
                              float *result_b) {
   size_t index = blockIdx.x * blockDim.x + threadIdx.x;

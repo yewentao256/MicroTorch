@@ -1,22 +1,9 @@
 #pragma once
 
-#include <map>
-
 #include "tensor.hpp"
+#include "context.hpp"
 
 namespace tinytorch {
-
-
-inline void infer_tensor(std::vector<Tensor> t_lst) {
-  size_t len_t_lst = t_lst.size();
-  std::string arch = t_lst[0].arch();
-  size_t size = t_lst[0].size();
-  for(size_t i = 1; i < len_t_lst; i++){
-    assert(t_lst[i].arch() == arch);
-    assert(t_lst[i].size() == size);
-    // TODO: support broadcast
-  }
-}
 
 struct Node;
 
@@ -28,11 +15,6 @@ struct Edge {
 
   Edge(std::shared_ptr<Node> function, uint32_t identifier) noexcept
       : function(std::move(function)), identifier(identifier) {}
-};
-
-struct Context {
-  std::map<std::string, Tensor> data;
-  std::map<std::string, int> data_int;
 };
 
 struct Node {
@@ -66,26 +48,38 @@ struct Node {
 template <typename T>
 struct FunctionNode : public Node {
   FunctionNode() {}
-  static std::vector<Tensor> forward_and_build_graph(
-      std::vector<Tensor> t_lst) {
-    infer_tensor(t_lst);   
+  static inline std::string infer_tensor(std::vector<Tensor> t_lst) {
+    size_t len_t_lst = t_lst.size();
+    std::string arch = t_lst[0].arch();
+    size_t size = t_lst[0].size();
+    for(size_t i = 1; i < len_t_lst; i++){
+      assert(t_lst[i].arch() == arch);
+      assert(t_lst[i].size() == size);
+      // TODO: support broadcast
+    }
+    return arch;
+  }
+
+  static void forward_and_build_graph(
+      std::vector<Tensor>& ins, std::vector<Tensor>& outs) {
     // Create node and set next edge
     auto node = std::make_shared<FunctionNode<T>>();
-    for (size_t i = 0; i < t_lst.size(); i++) {
+    node->context.arch = infer_tensor(ins);
+    for (size_t i = 0; i < ins.size(); i++) {
       // Here we bind the edge of tensor before to the current node
-      (*node).next.push_back(t_lst[i].getEdge());
+      node->next.push_back(ins[i].getEdge());
     }
 
     // forward
-    auto result = T::forward((*node).context, t_lst);
+    T::forward(node->context, ins, outs);
 
-    node->num_input_of_backward = result.size();
+    node->num_input_of_backward = outs.size();
 
     // Set the edges of the output to point to this node
-    for (size_t i = 0; i < result.size(); i++) {
-      result[i].setEdge(std::make_shared<Edge>(node, i));
+    for (size_t i = 0; i < outs.size(); i++) {
+      outs[i].setEdge(std::make_shared<Edge>(node, i));
     }
-    return result;
+    // return result;
   }
 
   std::vector<Tensor> backward(std::vector<Tensor> forward_output) override {

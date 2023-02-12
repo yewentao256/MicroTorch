@@ -1,41 +1,33 @@
 
 #include "ops.hpp"
 
-#include "cuda_impl.hpp"
 #include "graph.hpp"
 #include "log.hpp"
+#include "engine.hpp"
 
-#ifndef USE_CUDA
-#define DISPATCH_OP_AUTO(host_func, device_func, ...)              \
-  log_once([]() {},                                                \
-           []() {                                                  \
-             std::cout << "LOG: using host func `" #host_func "` " \
-                       << std::endl;                               \
-           });                                                     \
-  auto result = host_func(__VA_ARGS__);
+#ifdef USE_CUDA
+#define DISPATCH_OP_AUTO(func, ctx, ...)   \
+  if (ctx.arch == "host") {                \
+    func<Host>(ctx, __VA_ARGS__); \
+  } else {                                 \
+    func<Cuda>(ctx, __VA_ARGS__); \
+  }
 #else
-#define DISPATCH_OP_AUTO(host_func, device_func, ...)                   \
-  log_once([]() {},                                                     \
-           []() {                                                       \
-             std::cout << "LOG: using device func ` " #device_func "` " \
-                       << std::endl;                                    \
-           });                                                          \
-  auto result = device_func(__VA_ARGS__);
+#define DISPATCH_OP_AUTO(func, ctx, ...)                                 \
+  if (ctx.arch == "host") {                                              \
+    func<Host>(ctx, __VA_ARGS__);                               \
+  } else {                                                               \
+    std::cout << "Not support device in host compile mode" << std::endl; \
+  }                                                                      \
+  // auto result = device_func(__VA_ARGS__);
 #endif
 
 namespace tinytorch {
 struct AddNode : public FunctionNode<AddNode> {
-  static std::vector<Tensor> forward(Context &ctx, std::vector<Tensor> t_lst) {
-    // DISPATCH_OP_AUTO(add_impl, add_cuda_impl, t_lst[0], t_lst[1]);
-    Tensor result;
-    if (t_lst[0].arch() != "cuda"){
-      result = add_impl(t_lst[0], t_lst[1]);
-    }
-    else {
-      result = add_cuda_impl(t_lst[0], t_lst[1]);
-      result.cuda();
-    }
-    return {result};
+  static void forward(Context &ctx, std::vector<Tensor>& ins, std::vector<Tensor>& outs) {
+    // Tensor result = ones(ins[0].size());
+    DISPATCH_OP_AUTO(add_impl, ctx, ins[0], ins[1], outs[0]);
+    // return {result};
   }
   static std::vector<Tensor> backward(Context &ctx, std::vector<Tensor> grad) {
     auto grad_a = add_backward_impl(grad[0]);
@@ -45,15 +37,17 @@ struct AddNode : public FunctionNode<AddNode> {
   }
 };
 
-Tensor operator+(Tensor a, Tensor b) {
-  // forward returns {result}, only one element.
-  return FunctionNode<AddNode>::forward_and_build_graph({a, b})[0];
+Tensor operator+(Tensor& a, Tensor& b) {
+  Tensor out = zeros(a.size(), a.arch());
+  ApplyFunc func = &(FunctionNode<AddNode>::forward_and_build_graph);
+  OpNode("add").ins({a, b}).outs({out}).apply(func);
+  return out;
 }
 
 struct SubNode : public FunctionNode<SubNode> {
-  static std::vector<Tensor> forward(Context &ctx, std::vector<Tensor> t_lst) {
-    auto result = sub_impl(t_lst[0], t_lst[1]);
-    return {result};
+  static void forward(Context &ctx, std::vector<Tensor>& ins, std::vector<Tensor>& outs) {
+    // TODO: cuda
+    sub_impl<Host>(ctx, ins[0], ins[1], outs[0]);
   }
 
   static std::vector<Tensor> backward(Context &ctx, std::vector<Tensor> grad) {
@@ -61,17 +55,19 @@ struct SubNode : public FunctionNode<SubNode> {
     return grad_a;
   }
 };
-Tensor operator-(Tensor a, Tensor b) {
-  return FunctionNode<SubNode>::forward_and_build_graph({a, b})[0];
+Tensor operator-(Tensor& a, Tensor& b) {
+  Tensor out = zeros(a.size(), a.arch());
+  ApplyFunc func = &(FunctionNode<SubNode>::forward_and_build_graph);
+  OpNode("sub").ins({a, b}).outs({out}).apply(func);
+  return out;
 }
 
 struct MultNode : public FunctionNode<MultNode> {
-  static std::vector<Tensor> forward(Context &ctx, std::vector<Tensor> t_lst) {
+  static void forward(Context &ctx, std::vector<Tensor> ins, std::vector<Tensor>& outs) {
     // save tensor data to context
-    ctx.data["t0"] = t_lst[0];
-    ctx.data["t1"] = t_lst[1];
-    auto result = mult_impl(t_lst[0], t_lst[1]);
-    return {result};
+    ctx.data["t0"] = ins[0];
+    ctx.data["t1"] = ins[1];
+    mult_impl<Host>(ctx, ins[0], ins[1], outs[0]);
   }
 
   static std::vector<Tensor> backward(Context &ctx, std::vector<Tensor> grad) {
@@ -79,12 +75,15 @@ struct MultNode : public FunctionNode<MultNode> {
     return grad_a;
   }
 };
-Tensor operator*(Tensor a, Tensor b) {
-  return FunctionNode<MultNode>::forward_and_build_graph({a, b})[0];
+Tensor operator*(Tensor& a, Tensor& b) {
+  Tensor out = zeros(a.size(), a.arch());
+  ApplyFunc func = &(FunctionNode<MultNode>::forward_and_build_graph);
+  OpNode("add").ins({a, b}).outs({out}).apply(func);
+  return out;
 }
 
 struct SquareNode : public FunctionNode<SquareNode> {
-  static std::vector<Tensor> forward(Context &ctx, std::vector<Tensor> t_lst) {
+  static std::vector<Tensor> forward(Context &ctx, std::vector<Tensor> t_lst, std::vector<Tensor>& outs) {
     ctx.data["t"] = t_lst[0];
     auto result = square_impl(t_lst[0]);
     return {result};
@@ -95,12 +94,13 @@ struct SquareNode : public FunctionNode<SquareNode> {
     return grad_a;
   }
 };
-Tensor square(Tensor a) {
-  return FunctionNode<SquareNode>::forward_and_build_graph({a})[0];
+Tensor square(Tensor& a) {
+  return a;
+  //return FunctionNode<SquareNode>::forward_and_build_graph({a})[0];
 }
 
 struct SumNode : public FunctionNode<SumNode> {
-  static std::vector<Tensor> forward(Context &ctx, std::vector<Tensor> t_lst) {
+  static std::vector<Tensor> forward(Context &ctx, std::vector<Tensor> t_lst, std::vector<Tensor>& outs) {
     ctx.data_int["size"] = t_lst[0].size();
     auto result = sum_impl(t_lst[0]);
     return {result};
@@ -113,7 +113,8 @@ struct SumNode : public FunctionNode<SumNode> {
   }
 };
 
-Tensor sum(Tensor a) {
-  return FunctionNode<SumNode>::forward_and_build_graph({a})[0];
+Tensor sum(Tensor& a) {
+  return a;
+  // return FunctionNode<SumNode>::forward_and_build_graph({a})[0];
 }
 }  // namespace tinytorch
