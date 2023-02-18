@@ -38,7 +38,7 @@ struct Node {
 
   // Computes and returns the gradients of the input tensor of the forward
   // operator. The input is the gradient of the forward output
-  virtual std::vector<Tensor> backward(std::vector<Tensor> forward_output) = 0;
+  virtual std::vector<Tensor> backward(std::vector<Tensor>& forward_output) = 0;
 
   // for base class, it's recommended to use virtual deconstructor
   // so as to avoid memory leak
@@ -48,13 +48,13 @@ struct Node {
 template <typename T>
 struct FunctionNode : public Node {
   FunctionNode() {}
-  static inline std::string infer_tensor(std::vector<Tensor> t_lst) {
-    size_t len_t_lst = t_lst.size();
-    std::string arch = t_lst[0].arch();
-    size_t size = t_lst[0].size();
-    for(size_t i = 1; i < len_t_lst; i++){
-      assert(t_lst[i].arch() == arch);
-      assert(t_lst[i].size() == size);
+  static inline std::string infer_tensor(std::vector<Tensor> ins) {
+    size_t len_ins = ins.size();
+    std::string arch = ins[0].arch();
+    size_t size = ins[0].size();
+    for(size_t i = 1; i < len_ins; i++){
+      assert(ins[i].arch() == arch);
+      assert(ins[i].size() == size);
       // TODO: support broadcast
     }
     return arch;
@@ -79,13 +79,11 @@ struct FunctionNode : public Node {
     for (size_t i = 0; i < outs.size(); i++) {
       outs[i].setEdge(std::make_shared<Edge>(node, i));
     }
-    // return result;
   }
 
-  std::vector<Tensor> backward(std::vector<Tensor> forward_output) override {
-    assert(forward_output.size() == num_input_of_backward);
-    auto grad_list = T::backward(context, forward_output);
-    return grad_list;
+  std::vector<Tensor> backward(std::vector<Tensor>& forward_outputs) override {
+    assert(forward_outputs.size() == num_input_of_backward);
+    return T::backward(context, forward_outputs);
   }
 };
 
@@ -94,7 +92,7 @@ struct AccumulateGrad : public Node {
   // Usually for updating params
   Tensor t;
   AccumulateGrad(Tensor t) : t(t) { num_input_of_backward = 1; }
-  std::vector<Tensor> backward(std::vector<Tensor> input_grad) override {
+  std::vector<Tensor> backward(std::vector<Tensor>& input_grad) override {
     assert(input_grad.size() == 1);
     t.addGradInplace(input_grad[0]);
     return {};

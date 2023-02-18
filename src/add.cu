@@ -15,8 +15,8 @@ __global__ void add(size_t n, float *a, float *b, float *out) {
   }
 }
 
-template<>
-void add_impl<Cuda>(Context& ctx, Tensor& a, Tensor& b, Tensor& out) {
+template <>
+void add_impl<Cuda>(Context &ctx, Tensor &a, Tensor &b, Tensor &out) {
   float *a_ptr = a.data_ptr();
   float *b_ptr = b.data_ptr();
   float *out_ptr = out.data_ptr();
@@ -55,44 +55,42 @@ void partialSum<Cuda>(Context& ctx, const DArrayLite& in,
     }
 }
  */
-__global__ void add_backward(size_t n, float *grad, float *result_a,
-                             float *result_b) {
+__global__ void add_backward(size_t n, float *dy, float *dx_1, float *dx_2) {
   size_t index = blockIdx.x * blockDim.x + threadIdx.x;
   size_t stride = blockDim.x * gridDim.x;
   for (size_t i = index; i < n; i += stride) {
     // y = a + b, y'(a) = 1 * grad
-    result_a[i] = grad[i];
-    result_b[i] = grad[i];
+    dx_1[i] = dy[i];
+    dx_2[i] = dy[i];
   }
 }
 
-std::vector<Tensor> add_backward_cuda_impl(Tensor grad) {
-  Tensor result_a(grad.size());
-  Tensor result_b(grad.size());
-  float *grad_ptr = grad.data_ptr();
-  float *result_a_ptr = result_a.data_ptr();
-  float *result_b_ptr = result_b.data_ptr();
-  size_t size = sizeof(float) * grad.size();
+template <>
+void add_backward_impl<Cuda>(Context &ctx, Tensor &dy, Tensor &dx_1,
+                             Tensor &dx_2) {
+  float *dy_ptr = dy.data_ptr();
+  float *dx_1_ptr = dx_1.data_ptr();
+  float *dx_2_ptr = dx_2.data_ptr();
+  size_t size = sizeof(float) * dy.size();
 
-  float *grad_ptr_cuda, *result_a_ptr_cuda, *result_b_ptr_cuda;
-  cudaMalloc(&grad_ptr_cuda, size);
-  cudaMalloc(&result_a_ptr_cuda, size);
-  cudaMalloc(&result_b_ptr_cuda, size);
+  float *dy_ptr_cuda, *dx_1_ptr_cuda, *dx_2_ptr_cuda;
+  cudaMalloc(&dy_ptr_cuda, size);
+  cudaMalloc(&dx_1_ptr_cuda, size);
+  cudaMalloc(&dx_2_ptr_cuda, size);
 
-  cudaMemcpy(grad_ptr_cuda, grad_ptr, size, cudaMemcpyHostToDevice);
+  cudaMemcpy(dy_ptr_cuda, dy_ptr, size, cudaMemcpyHostToDevice);
 
   size_t blockSize = 256;
-  size_t numBlocks = (grad.size() + blockSize - 1) / blockSize;  // Ceilling
-  add<<<numBlocks, blockSize>>>(grad.size(), grad_ptr_cuda, result_a_ptr_cuda,
-                                result_b_ptr_cuda);
+  size_t numBlocks = (dy.size() + blockSize - 1) / blockSize;  // Ceilling
+  add<<<numBlocks, blockSize>>>(dy.size(), dy_ptr_cuda, dx_1_ptr_cuda,
+                                dx_2_ptr_cuda);
 
-  cudaMemcpy(result_a_ptr, result_a_ptr_cuda, size, cudaMemcpyDeviceToHost);
-  cudaMemcpy(result_b_ptr, result_b_ptr_cuda, size, cudaMemcpyDeviceToHost);
+  cudaMemcpy(dx_1_ptr, dx_1_ptr_cuda, size, cudaMemcpyDeviceToHost);
+  cudaMemcpy(dx_2_ptr, dx_2_ptr_cuda, size, cudaMemcpyDeviceToHost);
 
-  cudaFree(grad_ptr_cuda);
-  cudaFree(result_a_ptr_cuda);
-  cudaFree(result_b_ptr_cuda);
-  return {result_a, result_b};
+  cudaFree(dy_ptr_cuda);
+  cudaFree(dx_1_ptr_cuda);
+  cudaFree(dx_2_ptr_cuda);
 }
 
 }  // namespace tinytorch

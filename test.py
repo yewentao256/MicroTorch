@@ -43,5 +43,5 @@ def test_cuda():
     print(f"time usage: {time.time()- now}")
 
 if __name__ == '__main__':
-    # test_main()
+    test_main()
     test_cuda()

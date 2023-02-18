@@ -16,3 +16,4 @@ def test_tensor_one_dimension():
     
 if __name__ == '__main__':
     test_tensor_one_dimension()
+    print('successfully pass the test!')

@@ -35,9 +35,10 @@ std::string repr(Tensor t) {
   return s.str();
 }
 
-std::ostream &operator<<(std::ostream &stream, Tensor t) {
+std::ostream& operator<<(std::ostream& stream, Tensor t) {
   size_t size = t.size();
-  stream << "<tinytorch.Tensor size=" << size << ", device=" << t.arch() << ">: [";
+  stream << "<tinytorch.Tensor size=" << size << ", device=" << t.arch()
+         << ">: [";
   if (size > 20) {
     // only print several numbers
     for (size_t i = 0; i < 10; i++) {
@@ -47,7 +48,7 @@ std::ostream &operator<<(std::ostream &stream, Tensor t) {
     for (size_t i = size - 10; i < size; i++) {
       stream << std::setw(8) << t[i] << " ";
     }
-  } else{
+  } else {
     for (size_t i = 0; i < size; i++) {
       stream << std::setw(8) << t[i] << " ";
     }
@@ -56,89 +57,86 @@ std::ostream &operator<<(std::ostream &stream, Tensor t) {
   return stream;
 }
 
-template<>
+template <>
 void add_impl<Host>(Context& ctx, Tensor& a, Tensor& b, Tensor& out) {
   for (size_t i = 0; i < a.size(); i++) {
     out[i] = a[i] + b[i];
   }
 }
 
-std::vector<Tensor> add_backward_impl(Tensor grad_output) {
-  Tensor result_a(grad_output.size());
-  Tensor result_b(grad_output.size());
-  for (size_t i = 0; i < grad_output.size(); i++) {
+template <>
+void add_backward_impl<Host>(Context& ctx, Tensor& dy, Tensor& dx_1,
+                             Tensor& dx_2) {
+  for (size_t i = 0; i < dy.size(); i++) {
     // y = a + b, y'(a) = 1 * grad
-    result_a[i] = grad_output[i];
-    result_b[i] = grad_output[i];
+    dx_1[i] = dy[i];
+    dx_2[i] = dy[i];
   }
-  return {result_a, result_b};
 }
 
-template<>
+template <>
 void sub_impl<Host>(Context& ctx, Tensor& a, Tensor& b, Tensor& out) {
   for (size_t i = 0; i < a.size(); i++) {
     out[i] = a[i] - b[i];
   }
 }
 
-std::vector<Tensor> sub_backward_impl(Tensor grad_output) {
-  Tensor result_a(grad_output.size());
-  Tensor result_b(grad_output.size());
-  for (size_t i = 0; i < grad_output.size(); i++) {
+std::vector<Tensor> sub_backward_impl(Tensor& dy) {
+  Tensor result_a(dy.size());
+  Tensor result_b(dy.size());
+  for (size_t i = 0; i < dy.size(); i++) {
     // y = a - b, y'(a) = 1 * grad, y'(b) = -1 * grad
-    result_a[i] = grad_output[i];
-    result_b[i] = -grad_output[i];
+    result_a[i] = dy[i];
+    result_b[i] = -dy[i];
   }
   return {result_a, result_b};
 }
 
-template<>
+template <>
 void mult_impl<Host>(Context& ctx, Tensor& a, Tensor& b, Tensor& out) {
   for (size_t i = 0; i < a.size(); i++) {
     out[i] = a[i] * b[i];
   }
 }
 
-std::vector<Tensor> mult_backward_impl(Tensor a, Tensor b, Tensor grad_output) {
+std::vector<Tensor> mult_backward_impl(Tensor a, Tensor b, Tensor& dy) {
   Tensor result_a(a.size());
   Tensor result_b(a.size());
   for (size_t i = 0; i < a.size(); i++) {
     // y = a * b, y'(a) = b * grad
-    result_a[i] = b[i] * grad_output[i];
-    result_b[i] = a[i] * grad_output[i];
+    result_a[i] = b[i] * dy[i];
+    result_b[i] = a[i] * dy[i];
   }
   return {result_a, result_b};
 }
 
-Tensor square_impl(Tensor a) {
-  Tensor result(a.size());
+template <>
+void square_impl<Host>(Context& ctx, Tensor& a, Tensor& out) {
   for (size_t i = 0; i < a.size(); i++) {
-    result[i] = a[i] * a[i];
+    out[i] = a[i] * a[i];
   }
-  return result;
 }
-std::vector<Tensor> square_backward_impl(Tensor a, Tensor grad_output) {
+std::vector<Tensor> square_backward_impl(Tensor a, Tensor& dy) {
   Tensor result(a.size());
   for (size_t i = 0; i < a.size(); i++) {
     // y = a^2, y'(a) = 2 * a * grad
-    result[i] = 2 * a[i] * grad_output[i];
+    result[i] = 2 * a[i] * dy[i];
   }
   return {result};
 }
 
-Tensor sum_impl(Tensor a) {
-  Tensor result = zeros(1);
+template <>
+void sum_impl<Host>(Context& ctx, Tensor& a, Tensor& out) {
   for (size_t i = 0; i < a.size(); i++) {
-    result[0] += a[i];
+    out[0] += a[i];
   }
-  return result;
 }
-std::vector<Tensor> sum_backward_impl(size_t input_size, Tensor grad_output) {
-  assert(grad_output.size() == 1);
+std::vector<Tensor> sum_backward_impl(size_t input_size, Tensor& dy) {
+  assert(dy.size() == 1);
   Tensor result(input_size);
   for (size_t i = 0; i < input_size; i++) {
     // y = a + b + c ..., y'(a) = 1 * grad
-    result[i] = grad_output[0];
+    result[i] = dy[0];
   }
   return {result};
 }
