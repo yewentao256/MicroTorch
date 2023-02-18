@@ -43,18 +43,6 @@ void add_impl<Cuda>(Context &ctx, Tensor &a, Tensor &b, Tensor &out) {
   cudaFree(out_ptr_cuda);
 }
 
-/* template<>
-void partialSum<Cuda>(Context& ctx, const DArrayLite& in,
-        DArrayLite& out, size_t dim) {
-    if (reduce::getReducePrim(in) == Prim::Int64) {
-        dispatch_int_with<CudaPartialReduceAdaptor, Prim::Bool, int64_t>
-            (in.elemType(), ctx, in, out, dim, reduce::Add(), Id(), Id());
-    } else {
-        dispatch_real<CudaPartialReduceAdaptor>
-            (in.elemType(), ctx, in, out, dim, Add(), Id(), Id());
-    }
-}
- */
 __global__ void add_backward(size_t n, float *dy, float *dx_1, float *dx_2) {
   size_t index = blockIdx.x * blockDim.x + threadIdx.x;
   size_t stride = blockDim.x * gridDim.x;
@@ -82,8 +70,8 @@ void add_backward_impl<Cuda>(Context &ctx, Tensor &dy, Tensor &dx_1,
 
   size_t blockSize = 256;
   size_t numBlocks = (dy.size() + blockSize - 1) / blockSize;  // Ceilling
-  add<<<numBlocks, blockSize>>>(dy.size(), dy_ptr_cuda, dx_1_ptr_cuda,
-                                dx_2_ptr_cuda);
+  add_backward<<<numBlocks, blockSize>>>(dy.size(), dy_ptr_cuda, dx_1_ptr_cuda,
+                                         dx_2_ptr_cuda);
 
   cudaMemcpy(dx_1_ptr, dx_1_ptr_cuda, size, cudaMemcpyDeviceToHost);
   cudaMemcpy(dx_2_ptr, dx_2_ptr_cuda, size, cudaMemcpyDeviceToHost);

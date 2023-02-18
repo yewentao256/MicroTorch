@@ -2,13 +2,13 @@ import tinytorch
 import time
 
 def test_main():
-    observation = tinytorch.rand(30)
-    target = tinytorch.rand(30)
+    observation = tinytorch.rand(30).cuda()
+    target = tinytorch.rand(30).cuda()
     print(f'observation: {observation}')
     print(f'target: {target}')
     params = []
     for i in range(4):
-        params.append(tinytorch.rand(30))
+        params.append(tinytorch.rand(30).cuda())
         tinytorch.make_parameter(params[-1])
 
     def model(x: tinytorch.Tensor) -> tinytorch.Tensor:
