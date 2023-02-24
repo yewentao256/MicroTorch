@@ -92,6 +92,7 @@ struct AccumulateGrad : public Node {
   // Usually for updating params
   Tensor t;
   AccumulateGrad(Tensor t) : t(t) { num_input_of_backward = 1; }
+
   std::vector<Tensor> backward(std::vector<Tensor>& input_grad) override {
     assert(input_grad.size() == 1);
     t.addGradInplace(input_grad[0]);

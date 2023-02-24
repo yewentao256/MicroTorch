@@ -41,11 +41,15 @@ void backward(Tensor loss) {
       auto next = (*current_node).next[i];
       if (next) {
         auto next_node = next->function;
+        auto& next_tensor = next_gradients[next->identifier];
 
         // accumulate the gradient
         grad_map[next_node].resize(next_node->num_input_of_backward);
-        grad_map[next_node][next->identifier].addInplace(
-            next_gradients[next->identifier]);
+        if (grad_map[next_node][next->identifier].size() == 0){
+          // initialization
+          grad_map[next_node][next->identifier] = zeros(next_tensor.size(), next_tensor.arch());
+        }
+        grad_map[next_node][next->identifier].addInplace(next_tensor);
 
         // add next node to the stack
         node_stack.push_back(next->function);

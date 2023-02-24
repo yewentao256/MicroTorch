@@ -15,9 +15,18 @@ SET(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -Wall -g -fPIC")
 SET(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O3 -Wall -fPIC")
 # SET(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O3 -Wall -fPIC /MT")  # for msvc
 
-# find all the src files
+# all the src files
+set(HEADER_FILES
+    src/backward.hpp
+	src/context.hpp
+	src/engine.hpp
+	src/graph.hpp
+	src/log.hpp
+	src/ops.hpp
+	src/optimizer.hpp
+	src/tensor.hpp
+)
 file (GLOB SRC_FILES "src/*.cpp")
-file (GLOB HEADER_FILES "src/*.hpp")
 file (GLOB BINDING_FILES "binding/*.cpp")
 file (GLOB CUDA_FILES "src/*.cu")
 

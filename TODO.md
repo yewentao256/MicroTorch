@@ -2,9 +2,9 @@
 
 大项：
 
+- storage接入，cuda runtime.h使用要考虑一下如何接入。现在解了std vector的依赖，所以初始化上可能要python层做一些事情，然后把单元测试跑起来
+- grad删除，改成正式的require_grad相关逻辑
 - 支持cuda算子
-    当前add BACKWARD cuda有bug
-    backward暂时还是用返回值的形式，不做处理（来自parrots）
     拆分cuda文件和h文件，让目录结构更好
 - 引入注册op，执行op机制（带队列——引擎）
 - 重构tensor，不再使用std::vector

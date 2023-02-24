@@ -34,8 +34,8 @@ def test_main():
 
 
 def test_cuda():
-    a = tinytorch.rand(30000).cuda()
-    b = tinytorch.rand(30000).cuda()
+    a = tinytorch.rand(300000).cuda()
+    b = tinytorch.rand(300000).cuda()
     print(a)
     now = time.time()
     c = a + b

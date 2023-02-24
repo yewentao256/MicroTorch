@@ -10,7 +10,7 @@ void export_tensor_class(py::module &m) {
   py::class_<Tensor>(m, "Tensor")
       // init function
       .def(py::init<int>(), py::arg("size"))
-      .def(py::init<std::vector<float>>(), py::arg("data"))
+      // .def(py::init<std::vector<float>>(), py::arg("data"))
 
       // python specs
       .def("__repr__", [](Tensor &t) { return tinytorch::repr(t); })
