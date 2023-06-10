@@ -41,7 +41,11 @@ def test_cuda():
     c = a + b
     print(c)
     print(f"time usage: {time.time()- now}")
+    
+def unit_test():
+    tinytorch.unit_test()
 
 if __name__ == '__main__':
+    unit_test()
     test_main()
     test_cuda()
