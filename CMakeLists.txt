@@ -25,6 +25,10 @@ set(HEADER_FILES
 	src/ops.hpp
 	src/optimizer.hpp
 	src/tensor.hpp
+	src/allocator.hpp
+	src/exception.hpp
+	src/storage.hpp
+	src/unit_test.hpp
 )
 file (GLOB SRC_FILES "src/*.cpp")
 file (GLOB BINDING_FILES "binding/*.cpp")

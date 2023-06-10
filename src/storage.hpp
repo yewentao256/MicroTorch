@@ -1,50 +1,45 @@
-#pragma once
+#ifndef STORAGE_HPP
+#define STORAGE_HPP
+
+#include <array>
+#include <string>
+#include <vector>
+#include <cstring>
+
+#include "allocator.hpp"
 
 namespace tinytorch {
 
-
-
-static void* malloc_host(size_t bytes) { return malloc(bytes); }
-
-static void free_host(void* ptr) { free(ptr); }
-
-static void* malloc_device(size_t bytes) {
-  void* ptr;
-  cudaMalloc(&ptr, bytes);
-  return ptr;
-}
-
-static void free_device(void* ptr) {
-  cudaFree(ptr);
-}
-
-typedef void* (*MallocFunc)(size_t);
-typedef void (*FreeFunc)(void*);
-
-class Storage final {
- private:
-  MallocFunc malloc_func_;
-  FreeFunc free_func_;
-  size_t storage_size_;
-  void* data_;
-
+class Storage {
  public:
-  Storage(MallocFunc malloc_func, FreeFunc free_func, size_t storage_size)
-      : malloc_func_(malloc_func),
-        free_func_(free_func),
-        storage_size_(storage_size) {
-    data_ = malloc_func_(storage_size_);
-  }
+  explicit Storage(size_t size);
+  Storage(const Storage& other, size_t offset);
+  Storage(size_t size, data_t value);
+  Storage(const data_t* data, size_t size);
 
-  ~Storage() {
-    free_func_(data_);
-    data_ = nullptr;
-    storage_size_ = 0;
-  }
+  explicit Storage(const Storage& other) = default;
+  explicit Storage(Storage&& other) = default;
+  ~Storage() = default;
+  Storage& operator=(const Storage& other) = delete;
 
-  void* data() { return data_; }
-  const void* data() const { return data_; }
-  size_t size() const { return storage_size_; }
+  // inline function
+  data_t operator[](size_t idx) const { return dptr_[idx]; }
+  data_t& operator[](size_t idx) { return dptr_[idx]; }
+  size_t offset(void) const { return dptr_ - bptr_->data_; }
+  size_t version(void) const { return bptr_->version_; }
+  void increment_version(void) const { bptr_->version_++; }
+  data_t* data() { return dptr_; }
+
+ private:
+  struct Vdata {
+    size_t version_;  // grad version
+    data_t data_[1];  // start position of the pointer
+  };
+
+  std::shared_ptr<Vdata> bptr_;  // base pointer
+  data_t* dptr_;                 // data pointer, offset = dptr_ - bptr_->data_
 };
 
 }  // namespace tinytorch
+
+#endif
