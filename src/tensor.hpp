@@ -5,30 +5,28 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <numeric>
 #include <random>
 #include <sstream>
 #include <vector>
 
-namespace tinytorch {
+#include "storage.hpp"
 
-using data_t = float;
+namespace tinytorch {
 
 struct Edge;
 
 struct TensorImpl {
  private:
-
-  data_t* data_;
+  Storage storage_;
   size_t offset_ = 0;
-  size_t ndim_;
   std::vector<size_t> shape_;  // TODO: 之后支持多维
   std::vector<size_t> stride_;
-  bool need_delete_ = false;
 
   // funcs
   void init_stride() {
     size_t stride = 1;
-    for (int i = ndim_ - 1; i >= 0; i--) {
+    for (int i = ndim() - 1; i >= 0; i--) {
       stride_[i] = stride;
       stride *= shape_[i];
     }
@@ -40,76 +38,57 @@ struct TensorImpl {
   std::string arch_;
 
   // constructors
-  TensorImpl(std::vector<size_t> shape, std::string arch)
-      : data_(new data_t[shape[0]]),
-        ndim_(shape.size()),
-        shape_(shape),
-        stride_(ndim_),
-        arch_(arch) {
-    for (int i = 0; i < shape[0]; i++) {
-      data_[i] = 0;  // TODO: remove this deep copy
-    }
-
-    need_delete_ = true;
+  TensorImpl(const Storage& storage, std::vector<size_t>& shape,
+             std::string arch = "host")
+      : storage_(storage), shape_(shape), stride_(shape_.size()), arch_(arch) {
     init_stride();
   }
-  TensorImpl(data_t* data, std::vector<size_t> shape, std::string arch)
-      : data_(new data_t[shape[0]]),
-        ndim_(shape.size()),
-        shape_(shape),
-        stride_(ndim_),
-        arch_(arch) {
-    init_stride();
-    for (int i = 0; i < shape[0]; i++) {
-      data_[i] = data[i];
-    }
-  }
+  TensorImpl(const Storage& storage, std::vector<size_t>& shape,
+             std::vector<size_t> stride, std::string arch = "host")
+      : storage_(storage), shape_(shape), stride_(stride), arch_(arch) {}
+  TensorImpl(std::vector<size_t> shape, std::string arch = "host")
+      : TensorImpl(Storage(std::accumulate(shape.begin(), shape.end(), 0)),
+                   shape, arch) {}
+  TensorImpl(data_t* data, std::vector<size_t> shape, std::string arch = "host")
+      : TensorImpl(
+            Storage(data, std::accumulate(shape.begin(), shape.end(), 0)),
+            shape, arch) {}
   TensorImpl(data_t* data, std::vector<size_t> shape,
-             std::vector<size_t> stride)
-      : data_(new data_t[shape[0]]),
-        ndim_(shape.size()),
-        shape_(shape),
-        stride_(stride) {
-    for (int i = 0; i < shape[0]; i++) {
-      data_[i] = data[i];
-    }
-  }
+             std::vector<size_t> stride, std::string arch = "host")
+      : TensorImpl(
+            Storage(data, std::accumulate(shape.begin(), shape.end(), 0)),
+            shape, stride, arch) {}
 
-  ~TensorImpl() {
-    if (need_delete_) {
-      // TODO: new way to construct tensor then remove this
-      delete[] data_;
-    }
-  }
+  ~TensorImpl() {}
 
   // properties
   size_t offset() { return offset_; }
-  size_t ndim() { return ndim_; }
+  size_t ndim() const { return shape_.size(); }
   const std::vector<size_t>& stride() { return stride_; }
   const std::vector<size_t>& size() { return shape_; }
-  data_t* data() { return data_; }
+  data_t* data() { return storage_.data(); }
 
   // operator override
   data_t& operator[](std::vector<size_t> idxs) {
-    assert(ndim_ == idxs.size());
+    assert(ndim() == idxs.size());
     size_t offset = offset_;
-    for (size_t i = 0; i < ndim_; i++) {
+    for (size_t i = 0; i < ndim(); i++) {
       offset += idxs[i] * stride_[i];
     }
-    return data_[offset];
+    return storage_[offset];
   }
   data_t operator[](std::vector<size_t> idxs) const {
-    assert(ndim_ == idxs.size());
+    assert(ndim() == idxs.size());
     size_t offset = offset_;
-    for (size_t i = 0; i < ndim_; i++) {
+    for (size_t i = 0; i < ndim(); i++) {
       offset += idxs[i] * stride_[i];
     }
-    return data_[offset];
+    return storage_[offset];
   }
 
   // funcs
   const std::shared_ptr<TensorImpl> transpose(size_t dim0, size_t dim1) {
-    assert(dim0 < ndim_ && dim1 < ndim_);
+    assert(dim0 < ndim() && dim1 < ndim());
     std::vector<size_t> shape(shape_);  // deep copy
     shape[dim0] = shape_[dim1];
     shape[dim1] = shape_[dim0];
@@ -118,23 +97,23 @@ struct TensorImpl {
     stride[dim0] = stride_[dim1];
     stride[dim1] = stride_[dim0];
 
-    return std::make_shared<TensorImpl>(data_, shape, stride);
+    return std::make_shared<TensorImpl>(storage_, shape, stride);
   }
 
   const std::shared_ptr<TensorImpl> permute(std::vector<size_t> dims) {
-    assert(dims.size() == ndim_);
-    std::vector<size_t> shape(ndim_);
-    std::vector<size_t> stride(ndim_);
-    for (size_t i = 0; i < ndim_; i++) {
+    assert(dims.size() == ndim());
+    std::vector<size_t> shape(ndim());
+    std::vector<size_t> stride(ndim());
+    for (size_t i = 0; i < ndim(); i++) {
       shape[i] = shape_[dims[i]];
       stride[i] = stride_[dims[i]];
     }
-    return std::make_shared<TensorImpl>(data_, shape, stride);
+    return std::make_shared<TensorImpl>(storage_, shape, stride);
   }
 
   bool is_contiguous() const {
     size_t stride = 1;
-    for (int i = ndim_ - 1; i >= 0; i--) {
+    for (int i = ndim() - 1; i >= 0; i--) {
       if (stride_[i] != stride) {
         return false;
       }
@@ -154,10 +133,6 @@ struct Tensor {
     std::vector<size_t> shape = {size};
     impl_ = std::make_shared<TensorImpl>(shape, arch);
   }
-  // Tensor(std::vector<data_t> data, std::string arch = "host") {
-  //   std::vector<size_t> shape = {data.size()};
-  //   impl_ = std::make_shared<TensorImpl>(data.data(), shape, arch);
-  // }
   Tensor(std::shared_ptr<TensorImpl> impl) : impl_(impl) {}
 
   // operator override
@@ -190,7 +165,6 @@ struct Tensor {
   size_t size() { return impl_->size()[0]; }  // TODO: multi dimension
   void resize(size_t size) {
     assert(impl_);
-    // impl_->data().resize(size, 0);
     impl_->grad_.resize(size, 0);
   }
   void clearGrad() { impl_->grad_.clear(); }
