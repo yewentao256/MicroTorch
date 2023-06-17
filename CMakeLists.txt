@@ -21,14 +21,15 @@ set(HEADER_FILES
 	src/context.hpp
 	src/engine.hpp
 	src/graph.hpp
-	src/log.hpp
 	src/ops.hpp
 	src/optimizer.hpp
 	src/tensor.hpp
 	src/allocator.hpp
+	src/allocator2.hpp
 	src/exception.hpp
 	src/storage.hpp
 	src/unit_test.hpp
+	src/device.hpp
 )
 file (GLOB SRC_FILES "src/*.cpp")
 file (GLOB BINDING_FILES "binding/*.cpp")

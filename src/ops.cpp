@@ -3,18 +3,17 @@
 
 #include "engine.hpp"
 #include "graph.hpp"
-#include "log.hpp"
 
 #ifdef USE_CUDA
 #define DISPATCH_OP_AUTO(func, ctx, ...) \
-  if (ctx.arch == "host") {              \
+  if (ctx.arch == "cpu") {              \
     func<Host>(ctx, __VA_ARGS__);        \
   } else {                               \
     func<Cuda>(ctx, __VA_ARGS__);        \
   }
 #else
 #define DISPATCH_OP_AUTO(func, ctx, ...)                                 \
-  if (ctx.arch == "host") {                                              \
+  if (ctx.arch == "cpu") {                                              \
     func<Host>(ctx, __VA_ARGS__);                                        \
   } else {                                                               \
     std::cout << "Not support device in host compile mode" << std::endl; \

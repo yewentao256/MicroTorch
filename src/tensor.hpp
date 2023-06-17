@@ -19,7 +19,7 @@ struct Edge;
 struct TensorImpl {
  private:
   Storage storage_;
-  size_t offset_ = 0;
+  size_t offset_ = 0;          // TODO: remove this(storage has it)
   std::vector<size_t> shape_;  // TODO: 之后支持多维
   std::vector<size_t> stride_;
 
@@ -35,29 +35,28 @@ struct TensorImpl {
  public:
   std::vector<data_t> grad_;  // for backward
   std::shared_ptr<Edge> edge_;
-  std::string arch_;
 
   // constructors
-  TensorImpl(const Storage& storage, std::vector<size_t>& shape,
-             std::string arch = "host")
-      : storage_(storage), shape_(shape), stride_(shape_.size()), arch_(arch) {
+  TensorImpl(const Storage& storage, std::vector<size_t>& shape)
+      : storage_(storage), shape_(shape), stride_(shape_.size()) {
     init_stride();
   }
   TensorImpl(const Storage& storage, std::vector<size_t>& shape,
-             std::vector<size_t> stride, std::string arch = "host")
-      : storage_(storage), shape_(shape), stride_(stride), arch_(arch) {}
-  TensorImpl(std::vector<size_t> shape, std::string arch = "host")
-      : TensorImpl(Storage(std::accumulate(shape.begin(), shape.end(), 0)),
-                   shape, arch) {}
-  TensorImpl(data_t* data, std::vector<size_t> shape, std::string arch = "host")
-      : TensorImpl(
-            Storage(data, std::accumulate(shape.begin(), shape.end(), 0)),
-            shape, arch) {}
+             std::vector<size_t> stride)
+      : storage_(storage), shape_(shape), stride_(stride) {}
+  TensorImpl(std::vector<size_t> shape, std::string arch = "cpu")
+      : TensorImpl(Storage(std::accumulate(shape.begin(), shape.end(), 0),
+                           Device(arch)),
+                   shape) {}
+  TensorImpl(data_t* data, std::vector<size_t> shape, std::string arch = "cpu")
+      : TensorImpl(Storage(data, std::accumulate(shape.begin(), shape.end(), 0),
+                           Device(arch)),
+                   shape) {}
   TensorImpl(data_t* data, std::vector<size_t> shape,
-             std::vector<size_t> stride, std::string arch = "host")
-      : TensorImpl(
-            Storage(data, std::accumulate(shape.begin(), shape.end(), 0)),
-            shape, stride, arch) {}
+             std::vector<size_t> stride, std::string arch = "cpu")
+      : TensorImpl(Storage(data, std::accumulate(shape.begin(), shape.end(), 0),
+                           Device(arch)),
+                   shape, stride) {}
 
   ~TensorImpl() {}
 
@@ -67,6 +66,8 @@ struct TensorImpl {
   const std::vector<size_t>& stride() { return stride_; }
   const std::vector<size_t>& size() { return shape_; }
   data_t* data() { return storage_.data(); }
+  std::string arch() { return storage_.device().str(); }
+  size_t nbytes() const { return storage_.size(); }
 
   // operator override
   data_t& operator[](std::vector<size_t> idxs) {
@@ -129,7 +130,7 @@ struct Tensor {
 
  public:
   // constructors
-  Tensor(size_t size = 0, std::string arch = "host") {
+  Tensor(size_t size = 0, std::string arch = "cpu") {
     std::vector<size_t> shape = {size};
     impl_ = std::make_shared<TensorImpl>(shape, arch);
   }
@@ -187,10 +188,11 @@ struct Tensor {
   void setEdge(std::shared_ptr<Edge> edge) { impl_->edge_ = edge; };
 
   Tensor cuda() {
-    impl_->arch_ = "cuda";
-    return *this;
+    // TODO: data copy
+    return Tensor(impl_->nbytes(), "cuda");
   };
-  std::string arch() { return impl_->arch_; };
+
+  std::string arch() { return impl_->arch(); };
 };
 
 }  // namespace tinytorch

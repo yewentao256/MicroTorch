@@ -6,9 +6,9 @@
 namespace tinytorch {
 
 // tensor generation
-Tensor zeros(size_t size, std::string device = "host");
-Tensor ones(size_t size, std::string device = "host");
-Tensor rand(size_t size, std::string device = "host");
+Tensor zeros(size_t size, std::string device = "cpu");
+Tensor ones(size_t size, std::string device = "cpu");
+Tensor rand(size_t size, std::string device = "cpu");
 
 // operators
 Tensor operator+(Tensor& a, Tensor& b);

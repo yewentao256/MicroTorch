@@ -42,11 +42,11 @@ void export_tensor_class(py::module &m) {
 
 void export_tensor_function(py::module &m) {
   m.def("zeros", &tinytorch::zeros, "initialize a tensor with all zero",
-        py::arg("size"), py::arg("device") = "host")
+        py::arg("size"), py::arg("device") = "cpu")
       .def("ones", &tinytorch::ones, "initialize a tensor with all one",
-           py::arg("size"), py::arg("device") = "host")
+           py::arg("size"), py::arg("device") = "cpu")
       .def("rand", &tinytorch::rand, "initialize a tensor with random numbers",
-           py::arg("size"), py::arg("device") = "host")
+           py::arg("size"), py::arg("device") = "cpu")
       .def("sum", &tinytorch::sum, "get the sum result of a tensor")
       .def("square", &tinytorch::square, "get the square result of a tensor");
 }
