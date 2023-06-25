@@ -38,7 +38,7 @@ struct SGDOptimizer  // stochastic gradient descent
         continue;
       }
       for (size_t i = 0; i < param.size(); i++) {
-        assert(param.grad().size() == param.size());
+        TORCH_CHECK(param.grad().size() == param.size(), "grad size and size should be equal.");
         auto &w = param[i];
         auto g = param.grad()[i];
         auto &b = velocity[i];

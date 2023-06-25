@@ -48,30 +48,30 @@ struct Node {
 template <typename T>
 struct FunctionNode : public Node {
   FunctionNode() {}
-  static inline std::string infer_tensor(std::vector<Tensor> ins) {
-    size_t len_ins = ins.size();
-    std::string arch = ins[0].arch();
-    size_t size = ins[0].size();
-    for(size_t i = 1; i < len_ins; i++){
-      assert(ins[i].arch() == arch);
-      assert(ins[i].size() == size);
+  static inline std::string infer_tensor(std::vector<Tensor> inputs) {
+    size_t len_inputs = inputs.size();
+    std::string arch = inputs[0].arch();
+    size_t size = inputs[0].size();
+    for(size_t i = 1; i < len_inputs; i++){
+      TORCH_CHECK(inputs[i].arch() == arch, "all the tensors should be in the same arch.");
+      TORCH_CHECK(inputs[i].size() == size, "size of the tensors should be the same");
       // TODO: support broadcast
     }
     return arch;
   }
 
   static void forward_and_build_graph(
-      std::vector<Tensor>& ins, std::vector<Tensor>& outs) {
+      std::vector<Tensor>& inputs, std::vector<Tensor>& outs) {
     // Create node and set next edge
     auto node = std::make_shared<FunctionNode<T>>();
-    node->context.arch = infer_tensor(ins);
-    for (size_t i = 0; i < ins.size(); i++) {
+    node->context.arch = infer_tensor(inputs);
+    for (size_t i = 0; i < inputs.size(); i++) {
       // Here we bind the edge of tensor before to the current node
-      node->next.push_back(ins[i].getEdge());
+      node->next.push_back(inputs[i].getEdge());
     }
 
     // forward
-    T::forward(node->context, ins, outs);
+    T::forward(node->context, inputs, outs);
 
     node->num_input_of_backward = outs.size();
 
@@ -82,7 +82,7 @@ struct FunctionNode : public Node {
   }
 
   std::vector<Tensor> backward(std::vector<Tensor>& forward_outputs) override {
-    assert(forward_outputs.size() == num_input_of_backward);
+    TORCH_CHECK(forward_outputs.size() == num_input_of_backward, "forward output num should equal to num_input_of_backward");
     return T::backward(context, forward_outputs);
   }
 };
@@ -94,7 +94,7 @@ struct AccumulateGrad : public Node {
   AccumulateGrad(Tensor t) : t(t) { num_input_of_backward = 1; }
 
   std::vector<Tensor> backward(std::vector<Tensor>& input_grad) override {
-    assert(input_grad.size() == 1);
+    TORCH_CHECK(input_grad.size() == 1, "input grad size should equal to 1");
     t.addGradInplace(input_grad[0]);
     return {};
   }

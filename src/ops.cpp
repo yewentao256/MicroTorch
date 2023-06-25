@@ -111,7 +111,7 @@ struct SumNode : public FunctionNode<SumNode> {
   }
 
   static std::vector<Tensor> backward(Context& ctx, std::vector<Tensor>& grad) {
-    assert(grad.size() == 1);
+    TORCH_CHECK(grad.size() == 1, "grad size should equal to 1");
     auto grad_a = sum_backward_impl(ctx.data_int["size"], grad[0]);
     return grad_a;
   }

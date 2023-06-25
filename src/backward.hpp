@@ -12,8 +12,9 @@ void backward(Tensor loss) {
   // temple variable for accumulating the gradients
   std::map<std::shared_ptr<Node>, std::vector<Tensor>> grad_map;
 
-  assert(loss.size() == 1);
-  assert(loss.getEdge());
+  // TODO: this is size or numel?
+  TORCH_CHECK(loss.size() == 1, "loss size should equal to 1");
+  TORCH_CHECK(loss.getEdge(), "loss should have edge");
 
   // start traversal at the root node
   std::shared_ptr<Node> root_node = (*loss.getEdge()).function;
