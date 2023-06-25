@@ -2,13 +2,13 @@ import tinytorch
 import time
 
 def test_main():
-    observation = tinytorch.rand(30).cuda()
-    target = tinytorch.rand(30).cuda()
+    observation = tinytorch.rand(30)
+    target = tinytorch.rand(30)
     print(f'observation: {observation}')
     print(f'target: {target}')
     params = []
     for i in range(4):
-        params.append(tinytorch.rand(30).cuda())
+        params.append(tinytorch.rand(30))
         tinytorch.make_parameter(params[-1])
 
     def model(x: tinytorch.Tensor) -> tinytorch.Tensor:
@@ -36,10 +36,11 @@ def test_main():
 def test_cuda():
     a = tinytorch.rand(300000).cuda()
     b = tinytorch.rand(300000).cuda()
-    print(a)
+    print(a.cpu())
+    print(b.cpu())
     now = time.time()
     c = a + b
-    print(c)
+    print(c.cpu())
     print(f"time usage: {time.time()- now}")
     
 def unit_test():

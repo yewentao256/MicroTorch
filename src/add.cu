@@ -20,27 +20,12 @@ void add_impl<Cuda>(Context &ctx, Tensor &a, Tensor &b, Tensor &out) {
   float *a_ptr = a.data_ptr();
   float *b_ptr = b.data_ptr();
   float *out_ptr = out.data_ptr();
-  size_t size = sizeof(float) * out.size();
-
-  float *a_ptr_cuda, *b_ptr_cuda, *out_ptr_cuda;
-  cudaMalloc(&a_ptr_cuda, size);
-  cudaMalloc(&b_ptr_cuda, size);
-  cudaMalloc(&out_ptr_cuda, size);
-
-  // Copy data from host arrays to device
-  cudaMemcpy(a_ptr_cuda, a_ptr, size, cudaMemcpyHostToDevice);
-  cudaMemcpy(b_ptr_cuda, b_ptr, size, cudaMemcpyHostToDevice);
 
   size_t blockSize = 256;
   size_t numBlocks = (out.size() + blockSize - 1) / blockSize;  // Ceilling
-  add<<<numBlocks, blockSize>>>(out.size(), a_ptr_cuda, b_ptr_cuda,
-                                out_ptr_cuda);
+  add<<<numBlocks, blockSize>>>(out.size(), a_ptr, b_ptr,
+                                out_ptr);
 
-  cudaMemcpy(out_ptr, out_ptr_cuda, size, cudaMemcpyDeviceToHost);
-
-  cudaFree(a_ptr_cuda);
-  cudaFree(b_ptr_cuda);
-  cudaFree(out_ptr_cuda);
 }
 
 __global__ void add_backward(size_t n, float *dy, float *dx_1, float *dx_2) {
@@ -59,26 +44,12 @@ void add_backward_impl<Cuda>(Context &ctx, Tensor &dy, Tensor &dx_1,
   float *dy_ptr = dy.data_ptr();
   float *dx_1_ptr = dx_1.data_ptr();
   float *dx_2_ptr = dx_2.data_ptr();
-  size_t size = sizeof(float) * dy.size();
-
-  float *dy_ptr_cuda, *dx_1_ptr_cuda, *dx_2_ptr_cuda;
-  cudaMalloc(&dy_ptr_cuda, size);
-  cudaMalloc(&dx_1_ptr_cuda, size);
-  cudaMalloc(&dx_2_ptr_cuda, size);
-
-  cudaMemcpy(dy_ptr_cuda, dy_ptr, size, cudaMemcpyHostToDevice);
 
   size_t blockSize = 256;
   size_t numBlocks = (dy.size() + blockSize - 1) / blockSize;  // Ceilling
-  add_backward<<<numBlocks, blockSize>>>(dy.size(), dy_ptr_cuda, dx_1_ptr_cuda,
-                                         dx_2_ptr_cuda);
+  add_backward<<<numBlocks, blockSize>>>(dy.size(), dy_ptr, dx_1_ptr,
+                                         dx_2_ptr);
 
-  cudaMemcpy(dx_1_ptr, dx_1_ptr_cuda, size, cudaMemcpyDeviceToHost);
-  cudaMemcpy(dx_2_ptr, dx_2_ptr_cuda, size, cudaMemcpyDeviceToHost);
-
-  cudaFree(dy_ptr_cuda);
-  cudaFree(dx_1_ptr_cuda);
-  cudaFree(dx_2_ptr_cuda);
 }
 
 }  // namespace tinytorch

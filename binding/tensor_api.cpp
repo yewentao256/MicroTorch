@@ -13,7 +13,12 @@ void export_tensor_class(py::module &m) {
       // .def(py::init<std::vector<float>>(), py::arg("data"))
 
       // python specs
-      .def("__repr__", [](Tensor &t) { return tinytorch::repr(t); })
+      .def("__repr__",
+           [](Tensor &t) {
+             // TODO:
+             // 在python层做封装可以实现任意size的打印。或者也可以考虑新建一个print_tensor方法，因为__repr__只支持一个self参数
+             return tinytorch::repr(t, 30, "name");
+           })
       .def(
           "__getitem__", [](Tensor &t, int i) { return t[i]; },
           py::is_operator())
@@ -37,7 +42,8 @@ void export_tensor_class(py::module &m) {
       .def("grad", &Tensor::grad)
       .def("add_", &Tensor::addInplace)
       .def("add_grad_", &Tensor::addGradInplace)
-      .def("cuda", &Tensor::cuda);
+      .def("cuda", &Tensor::cuda)
+      .def("cpu", &Tensor::cpu);
 }
 
 void export_tensor_function(py::module &m) {

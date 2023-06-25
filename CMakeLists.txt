@@ -25,7 +25,6 @@ set(HEADER_FILES
 	src/optimizer.hpp
 	src/tensor.hpp
 	src/allocator.hpp
-	src/allocator2.hpp
 	src/exception.hpp
 	src/storage.hpp
 	src/unit_test.hpp
