@@ -1,105 +1,188 @@
 #pragma once
 
 #include <cstdlib>
+#include <functional>
 #include <map>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
+#ifdef USE_CUDA
+#include <cuda_runtime.h>
+#endif
+
+#include "device.hpp"
 #include "exception.hpp"
 
 namespace tinytorch {
 
 class Allocator {
  public:
-  // class to deallocate the `unique_ptr`
-  class trivial_delete_handler {
+  // class to deallocate the `unique_ptr` with
+  class mutable_delete_handler {
    public:
-    trivial_delete_handler(size_t size_) : size(size_) {}
-    void operator()(void* ptr) { deallocate(ptr, size); }
+    mutable_delete_handler(size_t size, Allocator* allocator)
+        : size_(size), allocator_(allocator) {}
+    void operator()(void* ptr) { allocator_->deallocate(ptr, size_); }
 
    private:
-    size_t size;
+    size_t size_;
+    Allocator* allocator_;
   };
 
   template <typename T>
-  class nontrivial_delete_handler {
+  class immutable_delete_handler {
    public:
+    immutable_delete_handler(Allocator* allocator) : allocator_(allocator) {}
     void operator()(void* ptr) {
       static_cast<T*>(ptr)->~T();
-      deallocate(ptr, sizeof(T));
+      allocator_->deallocate(ptr, sizeof(T));
     }
+
+   private:
+    Allocator* allocator_;
   };
 
   template <typename T>
-  using TrivialUniquePtr = std::unique_ptr<T, trivial_delete_handler>;
+  using MutableUniquePtr = std::unique_ptr<T, mutable_delete_handler>;
 
   template <typename T>
-  using NontrivialUniquePtr = std::unique_ptr<T, nontrivial_delete_handler<T>>;
+  using ImmutableUniquePtr = std::unique_ptr<T, immutable_delete_handler<T>>;
 
-  // I know it's weird here. The type has been already passed in as T, but the
-  // function parameter still need the number of bytes, instead of objects.
-  // And their relationship is
-  //          nbytes = nobjects * sizeof(T).
-  // Check what I do in "tensor/storage.cpp", and you'll understand.
-  // Or maybe changing the parameter here and doing some extra work in
-  // "tensor/storage.cpp" is better.
   template <typename T>
-  static std::shared_ptr<T> shared_allocate(size_t nbytes) {
+  std::shared_ptr<T> shared_allocate(size_t nbytes) {
     /* allocate the nbytes, return shared_ptr */
     void* raw_ptr = allocate(nbytes);
     return std::shared_ptr<T>(static_cast<T*>(raw_ptr),
-                              trivial_delete_handler(nbytes));
+                              mutable_delete_handler(nbytes, this));
   }
 
   template <typename T>
-  static TrivialUniquePtr<T> unique_allocate(size_t nbytes) {
+  MutableUniquePtr<T> unique_allocate(size_t nbytes) {
     /* allocate the nbytes, return unique_ptr */
     void* raw_ptr = allocate(nbytes);
-    return TrivialUniquePtr<T>(static_cast<T*>(raw_ptr),
-                               trivial_delete_handler(nbytes));
+    return MutableUniquePtr<T>(static_cast<T*>(raw_ptr),
+                               mutable_delete_handler(nbytes, this));
   }
 
   template <typename T, typename... Args>
-  static std::shared_ptr<T> shared_construct(Args&&... args) {
+  std::shared_ptr<T> shared_construct(Args&&... args) {
     /* construct the object, return shared_ptr */
     void* raw_ptr = allocate(sizeof(T));
     new (raw_ptr) T(std::forward<Args>(args)...);
     return std::shared_ptr<T>(static_cast<T*>(raw_ptr),
-                              nontrivial_delete_handler<T>());
+                              immutable_delete_handler<T>(this));
   }
 
   template <typename T, typename... Args>
-  static NontrivialUniquePtr<T> unique_construct(Args&&... args) {
+  ImmutableUniquePtr<T> unique_construct(Args&&... args) {
     /* construct the object, return unique_ptr */
     void* raw_ptr = allocate(sizeof(T));
     new (raw_ptr) T(std::forward<Args>(args)...);
-    return NontrivialUniquePtr<T>(static_cast<T*>(raw_ptr),
-                                  nontrivial_delete_handler<T>());
+    return ImmutableUniquePtr<T>(static_cast<T*>(raw_ptr),
+                                 immutable_delete_handler<T>(this));
   }
 
-  static bool all_clear(void);
+  bool all_clear(void) {
+    return allocate_memory_size_ == deallocate_memory_size_;
+  }
 
- private:
-  Allocator() = default;
-  ~Allocator() = default;
-  static Allocator& singleton() {
-    static Allocator Allocator;
-    return Allocator;
-  };
-  static void* allocate(size_t size);
-  static void deallocate(void* ptr, size_t size);
+  virtual ~Allocator() {}
 
-  static size_t allocate_memory_size_;
-  static size_t deallocate_memory_size_;
+ protected:
+  virtual void* do_allocate(size_t size) = 0;
+  virtual void do_deallocate(void* ptr) = 0;
 
-  struct free_deletor {
-    void operator()(void* ptr) { std::free(ptr); }
-  };
+  void* allocate(size_t size) {
+    auto iter = cache_.find(size);
+    void* res;
+    if (iter != cache_.end()) {
+      // Found pointer that can be reused.
+      res = iter->second.release();
+      cache_.erase(iter);
+    } else {
+      res = do_allocate(size);
+      TORCH_CHECK(res, "failed to allocate", size, "memory.");
+    }
+    allocate_memory_size_ += size;
+    return res;
+  }
+  void deallocate(void* ptr, size_t size) {
+    deallocate_memory_size_ += size;
+    cache_.emplace(size,
+                   std::unique_ptr<void, std::function<void(void*)>>(
+                       ptr, [this](void* ptr) { this->do_deallocate(ptr); }));
+  }
 
+  size_t allocate_memory_size_ = 0;
+  size_t deallocate_memory_size_ = 0;
+
+  // virtual void free_deletor(void* ptr) = 0;
   /* cache_ saves all of the pointers that have been deallocated.
      So we can reuse it instead of malloc again */
-  std::multimap<size_t, std::unique_ptr<void, free_deletor>> cache_;
+  std::multimap<size_t, std::unique_ptr<void, std::function<void(void*)>>>
+      cache_;
 };
+
+class CPUAllocator : public Allocator {
+ public:
+  void* do_allocate(size_t size) override { return std::malloc(size); }
+
+  void do_deallocate(void* ptr) override { std::free(ptr); }
+
+  ~CPUAllocator() override {
+    for (auto& pair : cache_) {
+      do_deallocate(pair.second.release());
+    }
+    cache_.clear();
+  }
+};
+
+#ifdef USE_CUDA
+class CUDAAllocator : public Allocator {
+ public:
+  void* do_allocate(size_t size) override {
+    void* ptr;
+    cudaMalloc(&ptr, size);
+    return ptr;
+  }
+
+  void do_deallocate(void* ptr) override { cudaFree(ptr); }
+
+  ~CUDAAllocator() override {
+    for (auto& pair : cache_) {
+      do_deallocate(pair.second.release());
+    }
+    cache_.clear();
+  }
+};
+#endif
+
+class AllocatorManager {
+ public:
+  AllocatorManager() {
+    cpu_allocator_ = std::make_unique<CPUAllocator>();
+#ifdef USE_CUDA
+    cuda_allocator_ = std::make_unique<CUDAAllocator>();
+#endif
+  }
+  Allocator* get_allocator(Device d) {
+    if (d.is_cpu()) {
+      return cpu_allocator_.get();
+    } else {
+#ifdef USE_CUDA
+      return cuda_allocator_.get();
+#endif
+    }
+  }
+
+ private:
+  std::unique_ptr<CPUAllocator> cpu_allocator_;
+#ifdef USE_CUDA
+  std::unique_ptr<CUDAAllocator> cuda_allocator_;
+#endif
+};
+
+extern AllocatorManager g_allocator_manager;
 
 }  // namespace tinytorch

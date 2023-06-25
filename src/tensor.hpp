@@ -1,7 +1,6 @@
 #pragma once
 
 #include <algorithm>
-#include <cassert>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -18,47 +17,51 @@ struct Edge;
 
 struct TensorImpl {
  private:
-  Storage storage_;
-  size_t offset_ = 0;          // TODO: remove this(storage has it)
+  size_t offset_ = 0;
   std::vector<size_t> shape_;  // TODO: 之后支持多维
   std::vector<size_t> stride_;
-
-  // funcs
-  void init_stride() {
-    size_t stride = 1;
-    for (int i = ndim() - 1; i >= 0; i--) {
-      stride_[i] = stride;
-      stride *= shape_[i];
-    }
-  }
+  size_t numel_;
+  Storage storage_;
 
  public:
   std::vector<data_t> grad_;  // for backward
   std::shared_ptr<Edge> edge_;
 
   // constructors
-  TensorImpl(const Storage& storage, std::vector<size_t>& shape)
-      : storage_(storage), shape_(shape), stride_(shape_.size()) {
-    init_stride();
+  TensorImpl(std::vector<size_t>& shape, Device device)
+      : shape_(shape),
+        stride_(shape_.size()),
+        numel_(std::accumulate(shape.begin(), shape.end(), 0)),
+        storage_(Storage(numel_ * sizeof(data_t), device)) {
+    size_t stride = 1;
+    for (int i = ndim() - 1; i >= 0; i--) {
+      stride_[i] = stride;
+      stride *= shape_[i];
+    }
   }
   TensorImpl(const Storage& storage, std::vector<size_t>& shape,
              std::vector<size_t> stride)
-      : storage_(storage), shape_(shape), stride_(stride) {}
-  TensorImpl(std::vector<size_t> shape, std::string arch = "cpu")
-      : TensorImpl(Storage(std::accumulate(shape.begin(), shape.end(), 0),
-                           Device(arch)),
-                   shape) {}
-  TensorImpl(data_t* data, std::vector<size_t> shape, std::string arch = "cpu")
-      : TensorImpl(Storage(data, std::accumulate(shape.begin(), shape.end(), 0),
-                           Device(arch)),
-                   shape) {}
-  TensorImpl(data_t* data, std::vector<size_t> shape,
-             std::vector<size_t> stride, std::string arch = "cpu")
-      : TensorImpl(Storage(data, std::accumulate(shape.begin(), shape.end(), 0),
-                           Device(arch)),
-                   shape, stride) {}
+      : shape_(shape),
+        stride_(stride),
+        numel_(std::accumulate(shape.begin(), shape.end(), 0)),
+        storage_(storage) {}
+  // TensorImpl(std::vector<size_t> shape, Device device)
+  //     : TensorImpl(
+  //           Storage(std::accumulate(shape.begin(), shape.end(), 0), device),
+  //           shape) {}
+  // TensorImpl(data_t* data, std::vector<size_t> shape, Device device)
+  //     : TensorImpl(Storage(data, std::accumulate(shape.begin(), shape.end(),
+  //     0),
+  //                          device),
+  //                  shape) {}
+  // TensorImpl(data_t* data, std::vector<size_t> shape,
+  //            std::vector<size_t> stride, Device device)
+  //     : TensorImpl(Storage(data, std::accumulate(shape.begin(), shape.end(),
+  //     0),
+  //                          device),
+  //                  shape, stride) {}
 
-  ~TensorImpl() {}
+  ~TensorImpl() {}  // 这里析构什么都不做？check一下
 
   // properties
   size_t offset() { return offset_; }
@@ -66,30 +69,44 @@ struct TensorImpl {
   const std::vector<size_t>& stride() { return stride_; }
   const std::vector<size_t>& size() { return shape_; }
   data_t* data() { return storage_.data(); }
-  std::string arch() { return storage_.device().str(); }
-  size_t nbytes() const { return storage_.size(); }
+  std::string arch() const { return storage_.device().str(); }
+  size_t nbytes() const { return storage_.nbytes(); }
+  size_t numel() const { return numel_; }
 
   // operator override
   data_t& operator[](std::vector<size_t> idxs) {
-    assert(ndim() == idxs.size());
+    // this is for updating tensor value? TODO: test this
+    // TODO(low priority): supprot this.
+    TORCH_CHECK(arch() != "cuda",
+                "we do not support setting value for cuda tensor currently.");
+    TORCH_CHECK(ndim() == idxs.size(),
+                "idxs size should equal to tensor's ndim");
     size_t offset = offset_;
     for (size_t i = 0; i < ndim(); i++) {
       offset += idxs[i] * stride_[i];
     }
     return storage_[offset];
   }
-  data_t operator[](std::vector<size_t> idxs) const {
-    assert(ndim() == idxs.size());
-    size_t offset = offset_;
-    for (size_t i = 0; i < ndim(); i++) {
-      offset += idxs[i] * stride_[i];
-    }
-    return storage_[offset];
-  }
+  // data_t operator[](std::vector<size_t> idxs) const {
+  //   // this is for getting value
+  //   TORCH_CHECK(ndim() == idxs.size(),
+  //               "idxs size should equal to tensor's ndim");
+  //   // TODO(low priority): supprot this.
+  //   TORCH_CHECK(arch() != "cuda",
+  //               "we do not support getting value from cuda tensor
+  //               currently.");
+  //   size_t offset = offset_;
+  //   for (size_t i = 0; i < ndim(); i++) {
+  //     offset += idxs[i] * stride_[i];
+  //   }
+  //   return storage_[offset];
+  // }
 
   // funcs
   const std::shared_ptr<TensorImpl> transpose(size_t dim0, size_t dim1) {
-    assert(dim0 < ndim() && dim1 < ndim());
+    // view op
+    TORCH_CHECK(dim0 < ndim() && dim1 < ndim(),
+                "transpose dim should not bigger than tensor's dim");
     std::vector<size_t> shape(shape_);  // deep copy
     shape[dim0] = shape_[dim1];
     shape[dim1] = shape_[dim0];
@@ -102,7 +119,9 @@ struct TensorImpl {
   }
 
   const std::shared_ptr<TensorImpl> permute(std::vector<size_t> dims) {
-    assert(dims.size() == ndim());
+    // view op
+    TORCH_CHECK(dims.size() == ndim(),
+                "permute dims size should equal to tensor's dim");
     std::vector<size_t> shape(ndim());
     std::vector<size_t> stride(ndim());
     for (size_t i = 0; i < ndim(); i++) {
@@ -131,8 +150,9 @@ struct Tensor {
  public:
   // constructors
   Tensor(size_t size = 0, std::string arch = "cpu") {
+    // TODO: 这里应该传进来shape而不是size，用于支持多d创建
     std::vector<size_t> shape = {size};
-    impl_ = std::make_shared<TensorImpl>(shape, arch);
+    impl_ = std::make_shared<TensorImpl>(shape, Device(arch));
   }
   Tensor(std::shared_ptr<TensorImpl> impl) : impl_(impl) {}
 
@@ -152,6 +172,7 @@ struct Tensor {
   const std::vector<size_t>& stride() { return impl_->stride(); }
   data_t* data_ptr() { return impl_->data(); };
   const std::shared_ptr<TensorImpl>& impl() const { return impl_; }
+  size_t numel() { return impl_->numel(); }
 
   // tensor functions
   const Tensor transpose(size_t dim0, size_t dim1) {
@@ -164,8 +185,10 @@ struct Tensor {
   bool is_contiguous() const { return impl_->is_contiguous(); }
 
   size_t size() { return impl_->size()[0]; }  // TODO: multi dimension
+
   void resize(size_t size) {
-    assert(impl_);
+    TORCH_CHECK(impl_, "tensor should be defined!");
+    // TODO: remove this
     impl_->grad_.resize(size, 0);
   }
   void clearGrad() { impl_->grad_.clear(); }
@@ -173,7 +196,8 @@ struct Tensor {
   std::vector<data_t> grad() { return impl_->grad_; }
 
   void addInplace(Tensor t) {
-    assert(t.size() == size());
+    TORCH_CHECK(t.size() == size(), "tensor's size should equal to t.size()");
+    // TODO: refactor this
     for (size_t i = 0; i < size(); i++) {
       impl_->data()[i] += t[i];
     }
@@ -188,8 +212,23 @@ struct Tensor {
   void setEdge(std::shared_ptr<Edge> edge) { impl_->edge_ = edge; };
 
   Tensor cuda() {
-    // TODO: data copy
-    return Tensor(impl_->nbytes(), "cuda");
+    if (this->arch() == "cuda") {
+      return *this;
+    }
+    Tensor t = Tensor(impl_->numel(), "cuda");
+    cudaMemcpy(t.data_ptr(), this->data_ptr(), impl_->nbytes(),
+               cudaMemcpyHostToDevice);
+    return t;
+  };
+
+  Tensor cpu() {
+    if (this->arch() == "cpu") {
+      return *this;
+    }
+    Tensor t = Tensor(impl_->numel(), "cpu");
+    cudaMemcpy(t.data_ptr(), this->data_ptr(), impl_->nbytes(),
+               cudaMemcpyDeviceToHost);
+    return t;
   };
 
   std::string arch() { return impl_->arch(); };

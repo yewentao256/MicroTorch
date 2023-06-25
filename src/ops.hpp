@@ -14,7 +14,7 @@ Tensor rand(size_t size, std::string device = "cpu");
 Tensor operator+(Tensor& a, Tensor& b);
 Tensor operator*(Tensor& a, Tensor& b);
 Tensor operator-(Tensor& a, Tensor& b);
-std::string repr(Tensor t);
+std::string repr(Tensor t, size_t print_size = 20, const std::string& name = "name");
 std::ostream& operator<<(std::ostream& stream, Tensor t);
 
 // Internal implementation of forward/backward
