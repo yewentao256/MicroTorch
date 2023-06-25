@@ -31,6 +31,13 @@ DEBUG=1 CUDA=1 pip install . -v
 
 ![image](resources/TinyTorch_graph.png)
 
+## About Unit Test
+
+There are two parts of unit test:
+
+- C++ unit test: defined in `unit_test.hpp`, this test is for internal API.
+- Python unit test: defined in `test.py`, this test is for user API.
+
 ## Reference
 
 - [TinyTorch](https://github.com/darglein/TinyTorch)
