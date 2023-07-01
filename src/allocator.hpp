@@ -167,13 +167,14 @@ class AllocatorManager {
 #endif
   }
   Allocator* get_allocator(Device d) {
+#ifdef USE_CUDA
     if (d.is_cpu()) {
       return cpu_allocator_.get();
     } else {
-#ifdef USE_CUDA
       return cuda_allocator_.get();
-#endif
     }
+#endif
+    return cpu_allocator_.get();
   }
 
  private:
