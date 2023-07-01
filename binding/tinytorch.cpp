@@ -1,4 +1,5 @@
 #include <pybind11/pybind11.h>
+#include "../src/ops.hpp"
 
 namespace py = pybind11;
 
@@ -16,5 +17,7 @@ PYBIND11_MODULE(tinytorch, m) {
     export_graph_function(m);
     export_optimizer_class(m);
     export_test_function(m);
+
+    tinytorch::initialize_ops();
 }
 

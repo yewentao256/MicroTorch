@@ -6,14 +6,14 @@
 
 #ifdef USE_CUDA
 #define DISPATCH_OP_AUTO(func, ctx, ...) \
-  if (ctx.arch == "cpu") {              \
+  if (ctx.device.is_cpu()) {             \
     func<Host>(ctx, __VA_ARGS__);        \
   } else {                               \
     func<Cuda>(ctx, __VA_ARGS__);        \
   }
 #else
 #define DISPATCH_OP_AUTO(func, ctx, ...)                                 \
-  if (ctx.arch == "cpu") {                                              \
+  if (ctx.device.is_cpu()) {                                             \
     func<Host>(ctx, __VA_ARGS__);                                        \
   } else {                                                               \
     std::cout << "Not support device in host compile mode" << std::endl; \
@@ -22,6 +22,7 @@
 #endif
 
 namespace tinytorch {
+
 struct AddNode : public FunctionNode<AddNode> {
   static void forward(Context& ctx, std::vector<Tensor>& ins,
                       std::vector<Tensor>& outs) {
@@ -29,19 +30,26 @@ struct AddNode : public FunctionNode<AddNode> {
   }
   static std::vector<Tensor> backward(Context& ctx, std::vector<Tensor>& ins) {
     auto dy = ins[0];
-    Tensor dx_1 = zeros(dy.size(), dy.arch());
-    Tensor dx_2 = zeros(dy.size(), dy.arch());
-    // add_backward_impl<Host>(dy, dx_1, dx_2);
+    Tensor dx_1 = zeros(dy.size(), dy.device());
+    Tensor dx_2 = zeros(dy.size(), dy.device());
     DISPATCH_OP_AUTO(add_backward_impl, ctx, dy, dx_1, dx_2);
     return {dx_1, dx_2};
   }
 };
 
-Tensor operator+(Tensor& a, Tensor& b) {
-  Tensor out = zeros(a.size(), a.arch());
-  ApplyFunc func = &(FunctionNode<AddNode>::forward_and_build_graph);
-  OpNode("add").ins({a, b}).outs({out}).apply(func);
+inline void add_out(const Tensor& a, const Tensor& b, Tensor& out) {
+  OpNode("add").ins({a, b}).outs({out}).apply();
+}
+
+Tensor Tensor::operator+(const Tensor& other) {
+  Tensor out = zeros(this->size(), this->device());
+  add_out(*this, other, out);
   return out;
+}
+
+Tensor& Tensor::operator+=(const Tensor& other) {
+  add_out(*this, other, *this);
+  return *this;
 }
 
 struct SubNode : public FunctionNode<SubNode> {
@@ -56,14 +64,28 @@ struct SubNode : public FunctionNode<SubNode> {
     return grad_a;
   }
 };
-Tensor operator-(Tensor& a, Tensor& b) {
-  Tensor out = zeros(a.size(), a.arch());
-  ApplyFunc func = &(FunctionNode<SubNode>::forward_and_build_graph);
-  OpNode("sub").ins({a, b}).outs({out}).apply(func);
+
+inline void sub_out(const Tensor& a, const Tensor& b, Tensor& out) {
+  OpNode("sub").ins({a, b}).outs({out}).apply();
+}
+
+Tensor Tensor::operator-(const Tensor& other) {
+  // TODO：注意这里operator-返回一个新的Tensor对象，而不是引用。这可以通过返回值优化（Return
+  // Value Optimization，RVO）或命名返回值优化（Named Return Value
+  // Optimization，NRVO）来高效地完成
+  // 对于Tensor这样的类型，通常会禁用复制构造函数，因为复制一个Tensor可能会涉及到大量数据的复制，这可能会非常耗时。相反，Tensor通常会提供移动构造函数。这也是可以被RVO来优化的
+  // 需要检查一下目前tensor的复制构造和移动构造
+  Tensor out = zeros(this->size(), this->device());
+  sub_out(*this, other, out);
   return out;
 }
 
-struct MultNode : public FunctionNode<MultNode> {
+Tensor& Tensor::operator-=(const Tensor& other) {
+  sub_out(*this, other, *this);
+  return *this;
+}
+
+struct MulNode : public FunctionNode<MulNode> {
   static void forward(Context& ctx, std::vector<Tensor>& ins,
                       std::vector<Tensor>& outs) {
     // save tensor data to context
@@ -78,9 +100,8 @@ struct MultNode : public FunctionNode<MultNode> {
   }
 };
 Tensor operator*(Tensor& a, Tensor& b) {
-  Tensor out = zeros(a.size(), a.arch());
-  ApplyFunc func = &(FunctionNode<MultNode>::forward_and_build_graph);
-  OpNode("add").ins({a, b}).outs({out}).apply(func);
+  Tensor out = zeros(a.size(), a.device());
+  OpNode("mul").ins({a, b}).outs({out}).apply();
   return out;
 }
 
@@ -97,9 +118,8 @@ struct SquareNode : public FunctionNode<SquareNode> {
   }
 };
 Tensor square(Tensor& a) {
-  Tensor out = zeros(a.size(), a.arch());
-  ApplyFunc func = &(FunctionNode<SquareNode>::forward_and_build_graph);
-  OpNode("square").ins({a}).outs({out}).apply(func);
+  Tensor out = zeros(a.size(), a.device());
+  OpNode("square").ins({a}).outs({out}).apply();
   return out;
 }
 
@@ -119,8 +139,20 @@ struct SumNode : public FunctionNode<SumNode> {
 
 Tensor sum(Tensor& a) {
   Tensor out = zeros(1);
-  ApplyFunc func = &(FunctionNode<SumNode>::forward_and_build_graph);
-  OpNode("sum").ins({a}).outs({out}).apply(func);
+  OpNode("sum").ins({a}).outs({out}).apply();
   return out;
+}
+
+void initialize_ops() {
+  OpRegistry::Instance().RegisterOp(
+      "add", &(FunctionNode<AddNode>::forward_and_build_graph));
+  OpRegistry::Instance().RegisterOp(
+      "sub", &(FunctionNode<SubNode>::forward_and_build_graph));
+  OpRegistry::Instance().RegisterOp(
+      "mul", &(FunctionNode<MulNode>::forward_and_build_graph));
+  OpRegistry::Instance().RegisterOp(
+      "square", &(FunctionNode<SquareNode>::forward_and_build_graph));
+  OpRegistry::Instance().RegisterOp(
+      "sum", &(FunctionNode<SumNode>::forward_and_build_graph));
 }
 }  // namespace tinytorch

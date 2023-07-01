@@ -4,28 +4,27 @@
 namespace tinytorch {
 
 // Tensor Create operators
-Tensor zeros(size_t size, std::string device) {
+Tensor zeros(size_t size, const std::string& device) {
   Tensor t(size);
   for (size_t i = 0; i < t.size(); i++) {
     t[i] = 0;
   }
   if (device == "cuda") {
-    return t.cuda();    // TODO: zeros for cuda ops
+    return t.cuda();  // TODO: zeros for cuda ops
   }
   return t;
 }
-Tensor ones(size_t size, std::string device) {
+Tensor ones(size_t size, const std::string& device) {
   Tensor t(size);
   for (size_t i = 0; i < t.size(); i++) {
     t[i] = 1;
   }
   if (device == "cuda") {
-    return t.cuda();    // TODO: zeros for cuda ops
+    return t.cuda();  // TODO: zeros for cuda ops
   }
   return t;
 }
-Tensor rand(size_t size, std::string device) {
-  // TODO: device cuda support, t("cpu"), then return t.cuda()
+Tensor rand(size_t size, const std::string& device) {
   Tensor t(size);
   static std::mt19937 mersenne_engine{572547235};
   std::uniform_real_distribution<float> dist{0.f, 1.f};
@@ -34,18 +33,17 @@ Tensor rand(size_t size, std::string device) {
     t[i] = dist(mersenne_engine);
   }
   if (device == "cuda") {
-    return t.cuda();    // TODO: zeros for cuda ops
+    return t.cuda();  // TODO: rand for cuda ops
   }
   return t;
 }
 
-std::ostream& print_with_size(std::ostream& stream, Tensor t, size_t print_size, const std::string& name = "name") {
+std::ostream& print_with_size(std::ostream& stream, Tensor t, size_t print_size,
+                              const std::string& name = "name") {
   size_t size = t.numel();
-  // if (t.arch() == "cuda") {
-    
-  // }
-  stream << "<tinytorch.Tensor[" << name << "] size=" << size << ", device=" << t.arch()
-         << ">: [";
+  // TODO: support print tensor in cuda
+  stream << "<tinytorch.Tensor[" << name << "] size=" << size
+         << ", device=" << t.device() << ", storage_ptr: " << t.data_ptr() << ">: [";
   if (size > print_size) {
     // 只打印前print_size/2个和后print_size/2个元素
     for (size_t i = 0; i < print_size / 2; i++) {
