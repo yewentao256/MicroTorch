@@ -27,7 +27,7 @@ class CMakeExtension(Extension):
 
 class CMakeBuild(build_ext):
     def build_extension(self, ext: CMakeExtension) -> None:
-        # Must be in this form due to bug in .resolve() only fixed in Python 3.10+
+        # Must in this form due to bug in .resolve() only fixed in Python 3.10+
         ext_fullpath = Path.cwd() / self.get_ext_fullpath(ext.name)
         extdir = ext_fullpath.parent.resolve()
 
@@ -72,13 +72,15 @@ class CMakeBuild(build_ext):
 
         logging.info('######sub process running info######')
         p1 = subprocess.run(
-            ["cmake", ext.sourcedir] + cmake_args, cwd=build_temp, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+            ["cmake", ext.sourcedir] + cmake_args, cwd=build_temp,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT
         )
         logging.info(f'Using command: `{" ".join(p1.args)}`')
         logging.info(p1.stdout.decode('utf-8', 'ignore'))
         p1.check_returncode()
         p2 = subprocess.run(
-            ["cmake", "--build", "."] + build_args, cwd=build_temp, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+            ["cmake", "--build", "."] + build_args, cwd=build_temp,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT
         )
         logging.info(f'Using command: `{" ".join(p2.args)}`')
         logging.info(p2.stdout.decode('utf-8', 'ignore'))

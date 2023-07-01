@@ -1,6 +1,7 @@
 import tinytorch
 import time
 
+
 def test_main():
     observation = tinytorch.rand(30)
     target = tinytorch.rand(30)
@@ -18,14 +19,14 @@ def test_main():
         x = x * params[2]
         x = x + params[3]
         return x
-    
+
     # Create a simple optimizer
     optimizer = tinytorch.SGDOptimizer(params, 0.1)
-    
+
     # Optimize the model for 50 iterations
     for i in range(50):
         optimizer.zero_grad()
-        
+
         prediction = model(observation)
         loss = tinytorch.sum(tinytorch.square(prediction - target))
         tinytorch.backward(loss)
@@ -42,11 +43,14 @@ def test_cuda():
     c = a + b
     print(c.cpu())
     print(f"time usage: {time.time()- now}")
-    
+
+
 def unit_test():
     tinytorch.unit_test()
+
 
 if __name__ == '__main__':
     unit_test()
     test_main()
-    test_cuda()
+    if tinytorch.is_cuda_available():
+        test_cuda()

@@ -25,7 +25,7 @@ struct SGDOptimizer  // stochastic gradient descent
 
   void zeroGrad() {
     for (Tensor &t : params) {
-      t.clearGrad();
+      t.grad().zero_();
     }
   }
 
@@ -34,11 +34,11 @@ struct SGDOptimizer  // stochastic gradient descent
     for (size_t p = 0; p < params.size(); p++) {
       Tensor &param = params[p];
       Tensor &velocity = velocities[p];
-      if (param.grad().size() == 0) {
+      if (param.grad().numel() == 0) {
         continue;
       }
       for (size_t i = 0; i < param.size(); i++) {
-        TORCH_CHECK(param.grad().size() == param.size(), "grad size and size should be equal.");
+        TORCH_CHECK(param.grad().numel() == param.numel(), "grad size and size should be equal.");
         auto &w = param[i];
         auto g = param.grad()[i];
         auto &b = velocity[i];

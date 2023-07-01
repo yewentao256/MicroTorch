@@ -33,15 +33,12 @@ void export_tensor_class(py::module &m) {
           py::is_operator())
 
       // functions
-      .def("transpose", &Tensor::transpose, py::arg("dim0"), py::arg("dim1"))
-      .def("permute", &Tensor::permute, py::arg("dims"))
+      // .def("transpose", &Tensor::transpose, py::arg("dim0"), py::arg("dim1"))
+      // .def("permute", &Tensor::permute, py::arg("dims"))
       .def("is_contiguous", &Tensor::is_contiguous)
       .def("size", &Tensor::size)
-      .def("resize", &Tensor::resize, py::arg("size"))
-      .def("clear_grad", &Tensor::clearGrad)
       .def("grad", &Tensor::grad)
-      .def("add_", &Tensor::addInplace)
-      .def("add_grad_", &Tensor::addGradInplace)
+      .def("add_", [](Tensor &self, const Tensor &other) { return self += other; })
       .def("cuda", &Tensor::cuda)
       .def("cpu", &Tensor::cpu);
 }
