@@ -1,9 +1,10 @@
 #pragma once
+#include <chrono>
+#include <iostream>
+
 #include "allocator.hpp"
 #include "exception.hpp"
-#include <iostream>
 #include "storage.hpp"
-#include <chrono>
 
 using namespace std::chrono;
 namespace tinytorch {
@@ -11,7 +12,7 @@ namespace tinytorch {
 const char* test_device() {
   Device device = Device("cpu");
   Device device_cuda = Device(DeviceType::CUDA);
-  
+
   TORCH_CHECK(!(device.is_cuda()), "check 1");
   TORCH_CHECK(device.is_cpu(), "check 1");
   TORCH_CHECK(device.str() == "cpu", "check1");
@@ -77,7 +78,6 @@ const char* test_cpu_allocator() {
   return "passed!";
 }
 
-
 const char* test_cuda_allocator() {
   auto allocator = g_allocator_manager.get_allocator(Device("cuda"));
 
@@ -100,18 +100,21 @@ const char* test_cuda_allocator() {
 
 int unit_test() {
   steady_clock::time_point start_tp = steady_clock::now();
-  std::cout << "test Device...  \033[32m" << test_device() << "\33[0m" << std::endl;
+  std::cout << "test Device...  \033[32m" << test_device() << "\33[0m"
+            << std::endl;
 
-  std::cout << "test Allocator[cpu]...  \033[32m" << test_cpu_allocator() << "\33[0m" << std::endl;
+  std::cout << "test Allocator[cpu]...  \033[32m" << test_cpu_allocator()
+            << "\33[0m" << std::endl;
 #ifdef USE_CUDA
-  std::cout << "test Allocator[cuda]...  \033[32m" << test_cuda_allocator() << "\33[0m" << std::endl;
+  std::cout << "test Allocator[cuda]...  \033[32m" << test_cuda_allocator()
+            << "\33[0m" << std::endl;
 #endif
 
   steady_clock::time_point end_tp = steady_clock::now();
   duration<double> time_span =
       duration_cast<duration<double>>(end_tp - start_tp);
-  std::cout << "\033[32mTest success. Test took " << time_span.count();
-  std::cout << " seconds.\033[0m" << std::endl;
+  std::cout << "\033[32m All of unit test success. Test took "
+            << time_span.count() << " seconds.\033[0m" << std::endl;
   return 0;
 }
-} // namespace tinytorch
+}  // namespace tinytorch

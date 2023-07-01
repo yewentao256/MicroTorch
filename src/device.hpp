@@ -21,20 +21,16 @@ struct Device final {
   bool operator==(const Device& other) const {
     return this->type_ == other.type_;
   }
-
   bool operator!=(const Device& other) const { return !(*this == other); }
-
-  /// Returns the type of device this is.
   DeviceType type() const { return type_; }
-
-  /// Return true if the device is of CUDA type.
   bool is_cuda() const { return type_ == DeviceType::CUDA; }
-
-  /// Return true if the device is of CPU type.
   bool is_cpu() const { return type_ == DeviceType::CPU; }
 
-  /// Same string as returned from operator<<.
   std::string str() const;
+  operator std::string() const {
+    // implicitly convert
+    return str();
+  }
 
   friend std::ostream& operator<<(std::ostream& stream, const Device& device) {
     stream << device.str();
