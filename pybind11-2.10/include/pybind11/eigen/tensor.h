@@ -492,7 +492,6 @@ struct type_caster<Eigen::TensorMap<Type, Options>,
 #endif
 
 protected:
-    // TODO: Move to std::optional once std::optional has more support
     std::unique_ptr<MapType> value;
 
 public:

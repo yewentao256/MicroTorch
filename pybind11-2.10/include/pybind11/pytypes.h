@@ -184,8 +184,6 @@ public:
     /// Return the object's current reference count
     int ref_count() const { return static_cast<int>(Py_REFCNT(derived().ptr())); }
 
-    // TODO PYBIND11_DEPRECATED(
-    //     "Call py::type::handle_of(h) or py::type::of(h) instead of h.get_type()")
     handle get_type() const;
 
 private:
@@ -1294,10 +1292,6 @@ class unpacking_collector;
 
 PYBIND11_NAMESPACE_END(detail)
 
-// TODO: After the deprecated constructors are removed, this macro can be simplified by
-//       inheriting ctors: `using Parent::Parent`. It's not an option right now because
-//       the `using` statement triggers the parent deprecation warning even if the ctor
-//       isn't even used.
 #define PYBIND11_OBJECT_COMMON(Name, Parent, CheckFun)                                            \
 public:                                                                                           \
     PYBIND11_DEPRECATED("Use reinterpret_borrow<" #Name ">() or reinterpret_steal<" #Name ">()")  \

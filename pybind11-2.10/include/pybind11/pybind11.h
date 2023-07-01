@@ -1235,7 +1235,7 @@ public:
         PyModule_AddObject(ptr(), name, obj.inc_ref().ptr() /* steals a reference */);
     }
 
-    using module_def = PyModuleDef; // TODO: Can this be removed (it was needed only for Python 2)?
+    using module_def = PyModuleDef;
 
     /** \rst
         Create a new top-level module that can be used as the main module of a C extension.
@@ -1262,7 +1262,6 @@ public:
             }
             pybind11_fail("Internal error in module_::create_extension_module()");
         }
-        // TODO: Should be reinterpret_steal for Python 3, but Python also steals it again when
         //       returned from PyInit_...
         //       For Python 2, reinterpret_borrow was correct.
         return reinterpret_borrow<module_>(m);
@@ -2276,7 +2275,6 @@ all_type_info_get_cache(PyTypeObject *type) {
         weakref((PyObject *) type, cpp_function([type](handle wr) {
                     get_internals().registered_types_py.erase(type);
 
-                    // TODO consolidate the erasure code in pybind11_meta_dealloc() in class.h
                     auto &cache = get_internals().inactive_override_cache;
                     for (auto it = cache.begin(), last = cache.end(); it != last;) {
                         if (it->first == reinterpret_cast<PyObject *>(type)) {
@@ -2363,7 +2361,6 @@ template <typename Access,
           typename... Extra>
 iterator make_iterator_impl(Iterator first, Sentinel last, Extra &&...extra) {
     using state = detail::iterator_state<Access, Policy, Iterator, Sentinel, ValueType, Extra...>;
-    // TODO: state captures only the types of Extra, not the values
 
     if (!detail::get_type_info(typeid(state), false)) {
         class_<state>(handle(), "iterator", pybind11::module_local())

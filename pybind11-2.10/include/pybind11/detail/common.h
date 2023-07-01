@@ -346,7 +346,7 @@ PYBIND11_WARNING_POP
 //               the transition from the legacy behavior to the non-permissive
 //               behavior.
 
-/// Compatibility macros for Python 2 / Python 3 versions TODO: remove
+/// Compatibility macros for Python 2 / Python 3 versions
 #define PYBIND11_INSTANCE_METHOD_NEW(ptr, class_) PyInstanceMethod_New(ptr)
 #define PYBIND11_INSTANCE_METHOD_CHECK PyInstanceMethod_Check
 #define PYBIND11_INSTANCE_METHOD_GET_FUNCTION PyInstanceMethod_GET_FUNCTION
