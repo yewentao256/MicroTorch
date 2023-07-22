@@ -9,6 +9,7 @@ namespace tinytorch {
 Tensor zeros(size_t size, const std::string& device = "cpu");
 Tensor ones(size_t size, const std::string& device = "cpu");
 Tensor rand(size_t size, const std::string& device = "cpu");
+Tensor rand(std::vector<size_t> shape, const std::string& device = "cpu");
 
 // operators
 Tensor operator*(Tensor& a, Tensor& b);

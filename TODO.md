@@ -3,7 +3,7 @@
 大项：
 
 - 单元测试
-- 目录结构重构，h和cpp、cuda文件拆分
+- 目录结构重构，h和cpp、cuda文件拆分（低优先级）
 - 支持cuda算子：sub、mul等剩余cuda算子
 - tensor功能丰富：包括view、contiguous、索引、切片等操作
 - 将tensor升级为二维支持(shape、取值等)

@@ -24,18 +24,24 @@ Tensor ones(size_t size, const std::string& device) {
   }
   return t;
 }
-Tensor rand(size_t size, const std::string& device) {
-  Tensor t(size);
-  static std::mt19937 mersenne_engine{572547235};
-  std::uniform_real_distribution<float> dist{0.f, 1.f};
 
-  for (size_t i = 0; i < t.size(); i++) {
-    t[i] = dist(mersenne_engine);
+Tensor rand(std::vector<size_t> shape, const std::string& device) {
+  Tensor t(shape);
+  static std::mt19937 mersenne_engine{572547235};
+  std::uniform_real_distribution<data_t> dist{0.f, 1.f};
+
+  data_t* data_ptr = t.data_ptr();
+  for (size_t i = 0; i < t.numel(); i++) {
+    data_ptr[i] = dist(mersenne_engine);
   }
   if (device == "cuda") {
     return t.cuda();  // TODO: rand for cuda ops
   }
   return t;
+}
+
+Tensor rand(size_t size, const std::string& device) {
+  return rand(std::vector<size_t>{size}, device);
 }
 
 std::ostream& print_with_size(std::ostream& stream, Tensor t, size_t print_size,

@@ -160,8 +160,12 @@ struct Tensor {
     std::vector<size_t> shape = {size};
     impl_ = std::make_shared<TensorImpl>(shape, Device(device), requires_grad);
   }
+  Tensor(std::vector<size_t> shape, Device device = Device("cpu"),
+         bool requires_grad = true) {
+    impl_ = std::make_shared<TensorImpl>(shape, Device(device), requires_grad);
+  }
   Tensor(std::shared_ptr<TensorImpl> impl) : impl_(impl) {}
-
+  Tensor(const Tensor& other) : impl_(other.impl()) { }
   // operator override
   data_t& operator[](size_t idx) { return impl_->operator[]({idx}); }
   data_t& operator[](std::vector<size_t> idxs) {
