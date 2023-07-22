@@ -9,9 +9,9 @@ using namespace tinytorch;
 void export_tensor_class(py::module &m) {
   py::class_<Tensor>(m, "Tensor")
       // init function
-      .def(py::init<int>(), py::arg("size"))
+      // .def(py::init<int>(), py::arg("size"))
       // .def(py::init<std::vector<float>>(), py::arg("data"))
-
+      .def(py::init<const Tensor&>())
       // python specs
       .def("__repr__",
            [](Tensor &t) {
@@ -48,8 +48,10 @@ void export_tensor_function(py::module &m) {
         py::arg("size"), py::arg("device") = "cpu")
       .def("ones", &tinytorch::ones, "initialize a tensor with all one",
            py::arg("size"), py::arg("device") = "cpu")
-      .def("rand", &tinytorch::rand, "initialize a tensor with random numbers",
+      .def("rand", (Tensor(*)(size_t, const std::string&)) &tinytorch::rand, "initialize a tensor with random numbers",
            py::arg("size"), py::arg("device") = "cpu")
+      .def("rand", (Tensor(*)(std::vector<size_t>, const std::string&)) &tinytorch::rand, "initialize a tensor with random numbers",
+           py::arg("shape"), py::arg("device") = "cpu")
       .def("sum", &tinytorch::sum, "get the sum result of a tensor")
       .def("square", &tinytorch::square, "get the square result of a tensor");
 }

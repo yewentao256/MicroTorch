@@ -49,8 +49,16 @@ def unit_test():
     tinytorch.unit_test()
 
 
+def test_tensor():
+    a = tinytorch.rand([30])
+    print(type(a))
+    print(a)
+    print(a[0])
+
+
 if __name__ == '__main__':
-    unit_test()
-    test_main()
-    if tinytorch.is_cuda_available():
-        test_cuda()
+    # unit_test()
+    test_tensor()
+    # test_main()
+    # if tinytorch.is_cuda_available():
+    #     test_cuda()

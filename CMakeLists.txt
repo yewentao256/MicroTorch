@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
 
 # global LIB_NAME and setup project
-set(LIB_NAME tinytorch)
+set(LIB_NAME _tinytorch)
 project (${LIB_NAME} VERSION 1.0.0 LANGUAGES CXX)
 
 # C++ Standard

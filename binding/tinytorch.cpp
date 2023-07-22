@@ -9,7 +9,7 @@ void export_graph_function(py::module &m);
 void export_optimizer_class(py::module &m);
 void export_test_function(py::module &m);
 
-PYBIND11_MODULE(tinytorch, m) {
+PYBIND11_MODULE(_tinytorch, m) {
     m.doc() = "TinyTorch: A simplest pytorch implementation for learning";
     
     export_tensor_class(m);

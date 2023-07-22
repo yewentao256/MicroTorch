@@ -95,7 +95,7 @@ setup(
     author_email="zhyanwentao@outlook.com",
     description="TinyTorch: A simplest pytorch implementation for learning",
     # we don't need sources here, since we only need a name for Extension
-    ext_modules=[CMakeExtension("tinytorch")],
+    ext_modules=[CMakeExtension("_tinytorch")],
     cmdclass={"build_ext": CMakeBuild},
     extras_require={"test": ["pytest>=6.0"]},
     python_requires=">=3.7",
