@@ -8,13 +8,17 @@ namespace tinytorch {
 struct Node;
 
 struct Edge {
-  /// The function_node this `Edge` points to.
+  // The function_node this `Edge` points to.
   std::shared_ptr<Node> function_node;
-  /// The identifier of a particular input to the function_node.
-  uint32_t identifier;
 
-  Edge(std::shared_ptr<Node> function_node, uint32_t identifier) noexcept
-      : function_node(std::move(function_node)), identifier(identifier) {}
+  // The input_identifier of a particular input to the function_node.
+  // For example, there are three inputs for function_node, then
+  // input_identifier can be 0, 1 or 2, representing the first, second
+  // or third input of this function_node
+  uint32_t input_identifier;
+
+  Edge(std::shared_ptr<Node> function_node, uint32_t input_identifier) noexcept
+      : function_node(std::move(function_node)), input_identifier(input_identifier) {}
 };
 
 struct Node {
@@ -26,7 +30,7 @@ struct Node {
   inline static int current_seq_nr;
 
   // The next edges are the inputs of the forward operator
-  std::vector<std::shared_ptr<Edge>> next;
+  std::vector<std::shared_ptr<Edge>> next_edges;
 
   // Variables that are required for the backward pass
   Context context;
@@ -68,7 +72,7 @@ struct FunctionNode : public Node {
     infer_tensor(node->context, inputs);
     for (size_t i = 0; i < inputs.size(); i++) {
       // Here we bind the edge of tensor before to the current node
-      node->next.push_back(inputs[i].get_edge());
+      node->next_edges.push_back(inputs[i].get_edge());
     }
 
     // forward
