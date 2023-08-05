@@ -16,16 +16,14 @@ __global__ void add(size_t n, float *a, float *b, float *out) {
 }
 
 template <>
-void add_impl<Cuda>(Context &ctx, Tensor &a, Tensor &b, Tensor &out) {
+void add_impl<Cuda>(Tensor &a, Tensor &b, Tensor &out) {
   float *a_ptr = a.data_ptr();
   float *b_ptr = b.data_ptr();
   float *out_ptr = out.data_ptr();
 
   size_t blockSize = 256;
   size_t numBlocks = (out.size() + blockSize - 1) / blockSize;  // Ceilling
-  add<<<numBlocks, blockSize>>>(out.size(), a_ptr, b_ptr,
-                                out_ptr);
-
+  add<<<numBlocks, blockSize>>>(out.size(), a_ptr, b_ptr, out_ptr);
 }
 
 __global__ void add_backward(size_t n, float *dy, float *dx_1, float *dx_2) {
@@ -39,17 +37,14 @@ __global__ void add_backward(size_t n, float *dy, float *dx_1, float *dx_2) {
 }
 
 template <>
-void add_backward_impl<Cuda>(Context &ctx, Tensor &dy, Tensor &dx_1,
-                             Tensor &dx_2) {
+void add_backward_impl<Cuda>(Tensor &dy, Tensor &dx_1, Tensor &dx_2) {
   float *dy_ptr = dy.data_ptr();
   float *dx_1_ptr = dx_1.data_ptr();
   float *dx_2_ptr = dx_2.data_ptr();
 
   size_t blockSize = 256;
   size_t numBlocks = (dy.size() + blockSize - 1) / blockSize;  // Ceilling
-  add_backward<<<numBlocks, blockSize>>>(dy.size(), dy_ptr, dx_1_ptr,
-                                         dx_2_ptr);
-
+  add_backward<<<numBlocks, blockSize>>>(dy.size(), dy_ptr, dx_1_ptr, dx_2_ptr);
 }
 
 }  // namespace tinytorch

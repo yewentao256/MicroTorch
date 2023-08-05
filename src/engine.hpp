@@ -1,10 +1,29 @@
 #pragma once
 
 #include <unordered_map>
+#include <variant>
 
 #include "tensor.hpp"
 
+// TODO: use variant to support fill op
+
 namespace tinytorch {
+
+#ifdef USE_CUDA
+#define DISPATCH_OP(func, device, ...) \
+  if (device.is_cpu()) {               \
+    func<Host>(__VA_ARGS__);           \
+  } else {                             \
+    func<Cuda>(__VA_ARGS__);           \
+  }
+#else
+#define DISPATCH_OP(func, device, ...)                                   \
+  if (device.is_cpu()) {                                                 \
+    func<Host>(__VA_ARGS__);                                             \
+  } else {                                                               \
+    std::cout << "Not support device in host compile mode" << std::endl; \
+  }
+#endif
 
 typedef void (*ApplyFunc)(std::vector<Tensor>&, std::vector<Tensor>&);
 

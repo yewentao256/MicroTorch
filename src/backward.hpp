@@ -20,7 +20,7 @@ void backward(Tensor loss) {
   node_stack.push_back(root_node);
 
   // Normally the gradient of the final loss is 1
-  Tensor one = ones(1);
+  Tensor one = ones(1, loss.device());
   grad_map[root_node] = {one};
 
   while (!node_stack.empty()) {
@@ -48,7 +48,7 @@ void backward(Tensor loss) {
         if (!(grad_map[next_node][next_edge->input_identifier].defined())) {
           // if tensor is not defined, initialization with zeros
           grad_map[next_node][next_edge->input_identifier] =
-              zeros(next_gradient.size(), next_gradient.device());
+              zeros(next_gradient.shape(), next_gradient.device());
         }
         // Accumulate the gradient according to edge's identifier.
         // For example, the next node takes three inputs(namely `grad_outputs`)

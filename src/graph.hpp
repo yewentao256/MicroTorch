@@ -56,10 +56,10 @@ struct FunctionNode : public Node {
   static inline void infer_tensor(Context& ctx, std::vector<Tensor>& inputs) {
     size_t len_inputs = inputs.size();
     Device device = inputs[0].device();
-    size_t size = inputs[0].size();
+    auto shape = inputs[0].shape();
     for(size_t i = 1; i < len_inputs; i++){
       TORCH_CHECK(inputs[i].device() == device, "all the tensors should be in the same device.");
-      TORCH_CHECK(inputs[i].size() == size, "size of the tensors should be the same");
+      TORCH_CHECK(inputs[i].shape() == shape, "size of the tensors should be the same");
       // TODO: support broadcast
     }
     ctx.device = device;

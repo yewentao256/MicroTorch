@@ -19,7 +19,7 @@ struct SGDOptimizer  // stochastic gradient descent
     // initialize velocities
     velocities.resize(t_lst.size());
     for (size_t i = 0; i < t_lst.size(); ++i) {
-      velocities[i] = zeros(t_lst[i].size());
+      velocities[i] = zeros(t_lst[i].shape(), t_lst[i].device());
     }
   }
 
@@ -37,7 +37,9 @@ struct SGDOptimizer  // stochastic gradient descent
       if (param.grad().numel() == 0) {
         continue;
       }
-      for (size_t i = 0; i < param.size(); i++) {
+      for (size_t i = 0; i < param.numel(); i++) {
+        // TODO: 检查这里是否能直接tensor运算，而不需要抽出数值运算
+        TORCH_CHECK(param.shape().size() == 1, "param shape size should be 1");
         TORCH_CHECK(param.grad().numel() == param.numel(), "grad size and size should be equal.");
         auto &w = param[i];
         auto g = param.grad()[i];
