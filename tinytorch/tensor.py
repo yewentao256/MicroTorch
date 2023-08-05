@@ -6,11 +6,24 @@ class Tensor(_tinytorch.Tensor):
         super().__init__(*args, **kwargs)
 
     def __repr__(self):
-        return "repr tinytorch tensor!"
+        return self.tensor_str()
 
 
-def rand(size, device='cpu'):
-    cpp_tensor = _tinytorch.rand(size, device)
-    print(type(cpp_tensor))
-    print(cpp_tensor)
-    return Tensor(cpp_tensor)
+def zeros(size: list, device: str = 'cpu') -> Tensor:
+    return Tensor(_tinytorch.zeros(size, device))
+
+
+def ones(size: list, device: str = 'cpu') -> Tensor:
+    return Tensor(_tinytorch.ones(size, device))
+
+
+def rand(size: list, device: str = 'cpu') -> Tensor:
+    return Tensor(_tinytorch.rand(size, device))
+
+
+def sum(tensor: Tensor) -> float:
+    return Tensor(_tinytorch.sum(tensor))
+
+
+def square(tensor: Tensor) -> float:
+    return Tensor(_tinytorch.square(tensor))

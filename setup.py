@@ -7,6 +7,8 @@ import logging
 from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
 
+__version__ = "0.2.0"
+
 # Convert distutils Windows platform specifiers to CMake -A arguments
 PLAT_TO_CMAKE = {
     "win32": "Win32",
@@ -90,7 +92,7 @@ class CMakeBuild(build_ext):
 
 setup(
     name="tinytorch",
-    version="0.1.0",
+    version=__version__,
     author="yewentao",
     author_email="zhyanwentao@outlook.com",
     description="TinyTorch: A simplest pytorch implementation for learning",
@@ -99,4 +101,5 @@ setup(
     cmdclass={"build_ext": CMakeBuild},
     extras_require={"test": ["pytest>=6.0"]},
     python_requires=">=3.7",
+    packages=['tinytorch'],
 )

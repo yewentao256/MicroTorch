@@ -113,8 +113,8 @@ int unit_test() {
   steady_clock::time_point end_tp = steady_clock::now();
   duration<double> time_span =
       duration_cast<duration<double>>(end_tp - start_tp);
-  std::cout << "\033[32m All of unit test success. Test took "
+  std::cout << "\033[32m All of the cpp unit tests success. Test took "
             << time_span.count() << " seconds.\033[0m" << std::endl;
-  return 0;
+  return 1;
 }
 }  // namespace tinytorch
