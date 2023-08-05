@@ -25,18 +25,20 @@ struct TensorImpl {
   Storage storage_;  // TODO: 这里是否应该用指针？
 
   bool requires_grad_;
-  // TODO: 使用autogradmeta来支持version和next_fn，function等？好像已经是下面edge_的功能了
+  // TODO:
+  // 使用autogradmeta来支持version和next_fn，function等？好像已经是下面edge_的功能了
   std::unique_ptr<Tensor> grad_ = nullptr;
 
  public:
   std::shared_ptr<Edge> edge_;
 
   // constructors
-  TensorImpl(std::vector<size_t>& shape, Device device, bool requires_grad)
+  explicit TensorImpl(std::vector<size_t>& shape, Device device,
+                      bool requires_grad, const data_t* data = nullptr)
       : shape_(shape),
         stride_(shape_.size()),
         numel_(std::accumulate(shape.begin(), shape.end(), 0)),
-        storage_(Storage(numel_ * sizeof(data_t), device)),
+        storage_(Storage(numel_ * sizeof(data_t), device, data)),
         requires_grad_(requires_grad) {
     size_t stride = 1;
     for (int i = ndim() - 1; i >= 0; i--) {
@@ -47,8 +49,9 @@ struct TensorImpl {
       grad_ = std::make_unique<Tensor>(numel_, device, false);
     }
   }
-  TensorImpl(const Storage& storage, std::vector<size_t>& shape,
-             std::vector<size_t> stride, Device device, bool requires_grad)
+  explicit TensorImpl(const Storage& storage, std::vector<size_t>& shape,
+                      std::vector<size_t> stride, Device device,
+                      bool requires_grad)
       : shape_(shape),
         stride_(stride),
         numel_(std::accumulate(shape.begin(), shape.end(), 0)),
@@ -65,7 +68,7 @@ struct TensorImpl {
   size_t offset() { return offset_; }
   size_t ndim() const { return shape_.size(); }
   const std::vector<size_t>& stride() { return stride_; }
-  const std::vector<size_t>& size() { return shape_; }
+  const std::vector<size_t>& shape() { return shape_; }
   data_t* data() { return storage_.data(); }
   Device device() const { return storage_.device(); }
   size_t nbytes() const { return storage_.nbytes(); }
@@ -152,20 +155,27 @@ struct Tensor {
 
  public:
   // constructors
-  Tensor(size_t size = 0, Device device = Device("cpu"),
-         bool requires_grad = true) {
+  explicit Tensor(size_t size = 0, Device device = Device("cpu"),
+                  bool requires_grad = true) {
     // TODO: 这里应该传进来shape而不是size，用于支持多d创建
     // TODO:
     // 现在所有tensor默认都会初始化一个impl_，这是没有必要的，当一些undefine的初始化时如vector<Tensor>创建的应该是未定义的tensor，然后引入defiend方法
     std::vector<size_t> shape = {size};
     impl_ = std::make_shared<TensorImpl>(shape, Device(device), requires_grad);
   }
-  Tensor(std::vector<size_t> shape, Device device = Device("cpu"),
-         bool requires_grad = true) {
+  explicit Tensor(std::vector<size_t> shape, Device device = Device("cpu"),
+                  bool requires_grad = true) {
     impl_ = std::make_shared<TensorImpl>(shape, Device(device), requires_grad);
   }
-  Tensor(std::shared_ptr<TensorImpl> impl) : impl_(impl) {}
-  Tensor(const Tensor& other) : impl_(other.impl()) { }
+  explicit Tensor(std::shared_ptr<TensorImpl> impl) : impl_(impl) {}
+  explicit Tensor(std::vector<data_t> data, Device device = Device("cpu"),
+                  bool requires_grad = true) {
+    std::vector<size_t> shape = {data.size()};
+    impl_ = std::make_shared<TensorImpl>(shape, Device(device), requires_grad,
+                                         data.data());
+  }
+  Tensor(const Tensor& other) : impl_(other.impl()) {} // copy constructor
+
   // operator override
   data_t& operator[](size_t idx) { return impl_->operator[]({idx}); }
   data_t& operator[](std::vector<size_t> idxs) {
@@ -195,23 +205,25 @@ struct Tensor {
 
   bool is_contiguous() const { return impl_->is_contiguous(); }
 
-  size_t size() { return impl_->size()[0]; }  // TODO: multi dimension
+  const std::vector<size_t>& shape() { return impl_->shape(); }
 
   Tensor& grad() { return impl_->grad(); }
   Tensor& zero_() {
     // TODO: make this a op, supporting cuda and cpu
+    // 或许可以将实现写到ops那里，这里只是头
     for (size_t i = 0; i < numel(); i++) {
       (*this)[i] = 0;
     }
     return *this;
   }
 
-  // Pytorch tensorbody里可以调用add_的原因：gen
-  // data生成了大量inline代码，里面有add_方法，随后经过dispatch调度到实际的add_op上
+  // overwrite ops
   Tensor operator+(const Tensor& other);
   Tensor& operator+=(const Tensor& other);
   Tensor operator-(const Tensor& other);
   Tensor& operator-=(const Tensor& other);
+  Tensor operator*(const Tensor& other);
+  Tensor& operator*=(const Tensor& other);
 
   std::shared_ptr<Edge> get_edge() { return impl_->edge_; };
   void set_edge(std::shared_ptr<Edge> edge) { impl_->edge_ = edge; };

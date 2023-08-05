@@ -14,7 +14,7 @@ using data_t = float;
 
 class Storage {
  public:
-  explicit Storage(size_t nbytes, Device device);
+  explicit Storage(size_t nbytes, Device device, const data_t* data = nullptr);
   // Storage(const Storage& other, Device device);
 
   explicit Storage(const Storage& other) = default;
