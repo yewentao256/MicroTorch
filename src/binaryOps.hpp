@@ -1,9 +1,9 @@
 #pragma once
 
 #include "context.hpp"
-#include "tensor.hpp"
-#include "graph.hpp"
 #include "engine.hpp"
+#include "graph.hpp"
+#include "tensor.hpp"
 #include "tensorFactories.hpp"
 
 namespace tinytorch {
@@ -23,14 +23,19 @@ inline void mul_out(const Tensor& a, const Tensor& b, Tensor& out) {
 template <typename Device>
 void add_impl(Tensor& a, Tensor& b, Tensor& out);
 template <typename Device>
-void add_backward_impl(Tensor& dy, Tensor& dx_1, Tensor& dx_2);
+void add_backward_impl(Tensor& grad_output, Tensor& grad_input_1,
+                       Tensor& grad_input_2);
 
 template <typename Device>
 void sub_impl(Tensor& a, Tensor& b, Tensor& out);
-std::vector<Tensor> sub_backward_impl(Tensor& dy);
+template <typename Device>
+void sub_backward_impl(Tensor& grad_output, Tensor& grad_input_1,
+                       Tensor& grad_input_2);
 
 template <typename Device>
-void mult_impl(Tensor& a, Tensor& b, Tensor& out);
-std::vector<Tensor> mult_backward_impl(Tensor a, Tensor b, Tensor& dy);
+void mul_impl(Tensor& a, Tensor& b, Tensor& out);
+template <typename Device>
+void mul_backward_impl(Tensor& grad_output, Tensor& grad_input_1,
+                       Tensor& grad_input_2, Tensor& a, Tensor& b);
 
 }  // namespace tinytorch

@@ -11,7 +11,6 @@ class Cuda {};
 
 struct Context {
   std::map<std::string, Tensor> data;
-  std::map<std::string, int> data_int;
   Device device;
   Context(const Device& device = Device("cpu")) : device(device) {}
 };

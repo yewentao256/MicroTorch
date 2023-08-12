@@ -9,14 +9,8 @@ Tensor zeros(size_t size, const std::string& device) {
 }
 
 Tensor zeros(std::vector<size_t> size, const std::string& device) {
-  Tensor t(size);
-  data_t* data_ptr = t.data_ptr();
-  for (size_t i = 0; i < t.numel(); i++) {
-    data_ptr[i] = 0;
-  }
-  if (device == "cuda") {
-    return t.cuda();
-  }
+  Tensor t(size, device);
+  fill_scalar(t, 0);
   return t;
 }
 
@@ -25,15 +19,8 @@ Tensor ones(size_t size, const std::string& device) {
 }
 
 Tensor ones(std::vector<size_t> size, const std::string& device) {
-  Tensor t(size);
-  // TODO: here we use index op is better
-  data_t* data_ptr = t.data_ptr();
-  for (size_t i = 0; i < t.numel(); i++) {
-    data_ptr[i] = 1;
-  }
-  if (device == "cuda") {
-    return t.cuda();
-  }
+  Tensor t(size, device);
+  fill_scalar(t, 1);
   return t;
 }
 

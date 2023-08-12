@@ -6,16 +6,15 @@
 
 namespace tinytorch {
 
-// TODO: move this to another file
 std::ostream& print_with_size(std::ostream& stream, Tensor t, size_t print_size,
                               const std::string& name = "name") {
   size_t size = t.numel();
-  // TODO: support print tensor in cuda
+  TORCH_CHECK(t.device().is_cpu(), "only support print tensor in cpu now");
+  TORCH_CHECK(t.shape().size() == 1, "only support 1d tensor print now");
   stream << "<tinytorch.Tensor[" << name << "] size=" << size
          << ", device=" << t.device() << ", storage_ptr: " << t.data_ptr()
          << ">: [";
   if (size > print_size) {
-    // 只打印前print_size/2个和后print_size/2个元素
     for (size_t i = 0; i < print_size / 2; i++) {
       stream << std::setw(8) << t[i] << " ";
     }
@@ -40,7 +39,7 @@ std::string print_with_size(Tensor t, size_t print_size,
 }
 
 std::ostream& operator<<(std::ostream& stream, Tensor t) {
-  return print_with_size(stream, t, 20);  // 默认打印20个元素
+  return print_with_size(stream, t, 20);
 }
 
 struct AddNode : public FunctionNode<AddNode> {
@@ -48,25 +47,31 @@ struct AddNode : public FunctionNode<AddNode> {
                       std::vector<Tensor>& outs) {
     DISPATCH_OP(add_impl, ctx.device, ins[0], ins[1], outs[0]);
   }
-  static std::vector<Tensor> backward(Context& ctx, std::vector<Tensor>& ins) {
-    auto dy = ins[0];
-    Tensor dx_1 = zeros(dy.shape(), dy.device());
-    Tensor dx_2 = zeros(dy.shape(), dy.device());
-    DISPATCH_OP(add_backward_impl, ctx.device, dy, dx_1, dx_2);
-    return {dx_1, dx_2};
+  static std::vector<Tensor> backward(Context& ctx,
+                                      std::vector<Tensor>& grads) {
+    auto& grad_output = grads[0];
+    Tensor grad_input_1 = zeros(grad_output.shape(), grad_output.device());
+    Tensor grad_input_2 = zeros(grad_output.shape(), grad_output.device());
+    DISPATCH_OP(add_backward_impl, ctx.device, grad_output, grad_input_1,
+                grad_input_2);
+    return {grad_input_1, grad_input_2};
   }
 };
 
 struct SubNode : public FunctionNode<SubNode> {
   static void forward(Context& ctx, std::vector<Tensor>& ins,
                       std::vector<Tensor>& outs) {
-    // TODO: cuda
-    sub_impl<Host>(ins[0], ins[1], outs[0]);
+    DISPATCH_OP(sub_impl, ctx.device, ins[0], ins[1], outs[0]);
   }
 
-  static std::vector<Tensor> backward(Context& ctx, std::vector<Tensor>& grad) {
-    auto grad_a = sub_backward_impl(grad[0]);
-    return grad_a;
+  static std::vector<Tensor> backward(Context& ctx,
+                                      std::vector<Tensor>& grads) {
+    auto& grad_output = grads[0];
+    Tensor grad_input_1 = zeros(grad_output.shape(), grad_output.device());
+    Tensor grad_input_2 = zeros(grad_output.shape(), grad_output.device());
+    DISPATCH_OP(sub_backward_impl, ctx.device, grad_output, grad_input_1,
+                grad_input_2);
+    return {grad_input_1, grad_input_2};
   }
 };
 
@@ -74,41 +79,57 @@ struct MulNode : public FunctionNode<MulNode> {
   static void forward(Context& ctx, std::vector<Tensor>& ins,
                       std::vector<Tensor>& outs) {
     // save tensor data to context
-    ctx.data["t0"] = ins[0];
-    ctx.data["t1"] = ins[1];
-    mult_impl<Host>(ins[0], ins[1], outs[0]);
+    ctx.data.emplace("a", ins[0]);
+    ctx.data.emplace("b", ins[1]);
+    DISPATCH_OP(mul_impl, ctx.device, ins[0], ins[1], outs[0]);
   }
 
-  static std::vector<Tensor> backward(Context& ctx, std::vector<Tensor>& grad) {
-    auto grad_a = mult_backward_impl(ctx.data["t0"], ctx.data["t1"], grad[0]);
-    return grad_a;
+  static std::vector<Tensor> backward(Context& ctx,
+                                      std::vector<Tensor>& grads) {
+    auto& grad_output = grads[0];
+    Tensor grad_input_1 = zeros(grad_output.shape(), grad_output.device());
+    Tensor grad_input_2 = zeros(grad_output.shape(), grad_output.device());
+    DISPATCH_OP(mul_backward_impl, ctx.device, grad_output, grad_input_1,
+                grad_input_2, ctx.data.at("a"), ctx.data.at("b"));
+    return {grad_input_1, grad_input_2};
   }
 };
 struct SquareNode : public FunctionNode<SquareNode> {
   static void forward(Context& ctx, std::vector<Tensor>& ins,
                       std::vector<Tensor>& outs) {
-    ctx.data["t"] = ins[0];
-    square_impl<Host>(ins[0], outs[0]);
+    ctx.data.emplace("input", ins[0]);
+    DISPATCH_OP(square_impl, ctx.device, ins[0], outs[0]);
   }
 
-  static std::vector<Tensor> backward(Context& ctx, std::vector<Tensor>& grad) {
-    auto grad_a = square_backward_impl(ctx.data["t"], grad[0]);
-    return grad_a;
+  static std::vector<Tensor> backward(Context& ctx, std::vector<Tensor>& grads) {
+    auto& input = ctx.data.at("input");
+    auto& grad_output = grads[0];
+    Tensor grad_input = zeros(input.shape(), input.device());
+    DISPATCH_OP(square_backward_impl, ctx.device, grad_output, grad_input,
+                input);
+    return {grad_input};
   }
 };
 
 struct SumNode : public FunctionNode<SumNode> {
   static void forward(Context& ctx, std::vector<Tensor>& ins,
                       std::vector<Tensor>& outs) {
-    ctx.data["input"] = ins[0];
-    sum_impl<Host>(ins[0], outs[0]);
+    ctx.data.emplace("input", ins[0]);
+    DISPATCH_OP(sum_impl, ctx.device, ins[0], outs[0]);
   }
 
   static std::vector<Tensor> backward(Context& ctx,
                                       std::vector<Tensor>& grads) {
-    TORCH_CHECK(grads.size() == 1, "grad size should equal to 1");
-    auto grad_input = sum_backward_impl(ctx.data["input"], grads[0]);
-    return grad_input;
+    auto& input = ctx.data.at("input");
+    auto& grad_output = grads[0];
+    TORCH_CHECK(grad_output.numel() == 1,
+                "grad_output numel should equal to 1");
+    // y = a + b + c ..., y'(a) = 1 * grad[0], y'(b) = 1 * grad[1] ...
+    Tensor grad_input = zeros(input.shape(), input.device());
+    // TODO: grad_output.cpu() here is temp fix for getting index value from cuda
+    // after supporting index cuda op, we should remove this.
+    DISPATCH_OP(fill_impl, ctx.device, grad_input, grad_output.cpu()[0]);
+    return {grad_input};
   }
 };
 

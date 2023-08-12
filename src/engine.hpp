@@ -5,8 +5,6 @@
 
 #include "tensor.hpp"
 
-// TODO: use variant to support fill op
-
 namespace tinytorch {
 
 #ifdef USE_CUDA
