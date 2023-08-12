@@ -1,15 +1,12 @@
 import tinytorch
-import time
 
 
-def test_main():
-    observation = tinytorch.rand(30)
-    target = tinytorch.rand(30)
-    print(f'observation: {observation}')
-    print(f'target: {target}')
+def test_main(device: str = "cpu") -> None:
+    observation = tinytorch.rand(30, device)
+    target = tinytorch.rand(30, device)
     params = []
     for i in range(4):
-        params.append(tinytorch.rand(30))
+        params.append(tinytorch.rand(30, device))
         tinytorch.make_parameter(params[-1])
 
     def model(x: tinytorch.Tensor) -> tinytorch.Tensor:
@@ -34,18 +31,6 @@ def test_main():
         print(f'Iter: {i}, Loss: {loss[0]}')
 
 
-def test_cuda():
-    a = tinytorch.rand(300000).cuda()
-    b = tinytorch.rand(300000).cuda()
-    print(a.cpu())
-    print(b.cpu())
-    now = time.time()
-    c = a + b
-    print(c.cpu())
-    print(f"time usage: {time.time()- now}")
-
-
 if __name__ == '__main__':
-    test_main()
-    if tinytorch.is_cuda_available():
-        test_cuda()
+    # TODO: 看能否支持cuda（optimizer还有个index取值）
+    test_main("cpu")

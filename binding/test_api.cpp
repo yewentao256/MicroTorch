@@ -1,6 +1,6 @@
 #include <pybind11/pybind11.h>
 
-#include "../src/unit_test.hpp"
+#include "../src/unitTest.hpp"
 
 #ifdef USE_CUDA
 #define CUDA_AVAILABLE true
