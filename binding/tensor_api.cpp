@@ -10,12 +10,13 @@ void export_tensor_class(py::module &m) {
   py::class_<Tensor>(m, "Tensor")
       // init function
       .def(py::init<const Tensor &>())
-      .def(py::init<std::vector<data_t>>(), py::arg("data"))
-      .def("tensor_str",
-           [](Tensor &t) { return tinytorch::print_with_size(t, 30, "name"); })
+      .def(py::init<std::vector<data_t>, const std::string, bool>(),
+           py::arg("data"), py::arg("device") = "cpu",
+           py::arg("requires_grad") = false)
+      .def("str", [](Tensor &t) { return t.str(); })
       .def(
           "__getitem__",
-          [](Tensor &t, std::vector<size_t> idxs) { return t[idxs]; },
+          [](const Tensor &t, std::vector<size_t> idxs) { return t[idxs]; },
           py::is_operator())
       .def(
           "__setitem__",
@@ -48,12 +49,21 @@ void export_tensor_class(py::module &m) {
              return self;
            })
 
+      // properties
+      .def_property(
+          "requires_grad",
+          [](const Tensor &t) { return t.requires_grad(); },  // Getter
+          [](Tensor &t, bool requires_grad) {
+            t.set_requires_grad(requires_grad);
+          }  // Setter
+          )
+
       // functions
       .def("is_contiguous", &Tensor::is_contiguous)
       .def("shape", &Tensor::shape)
       .def("grad", &Tensor::grad)
-      .def("add_",
-           [](Tensor &self, const Tensor &other) { return self += other; })
+      .def("backward", &Tensor::backward)
+      .def("zero_grad", [](Tensor &t) { return t.grad().zero_(); })
       .def("zero_", &Tensor::zero_)
       .def("fill_", &Tensor::fill_)
       .def("numel", &Tensor::numel)
@@ -64,29 +74,9 @@ void export_tensor_class(py::module &m) {
 }
 
 void export_tensor_function(py::module &m) {
-  m.def("zeros", (Tensor(*)(size_t, const std::string &)) & tinytorch::zeros,
-        "initialize a tensor with all zero", py::arg("size"), py::arg("device"))
-      .def("zeros",
-           (Tensor(*)(std::vector<size_t>, const std::string &)) &
-               tinytorch::zeros,
-           "initialize a tensor with random numbers", py::arg("shape"),
-           py::arg("device"))
-      .def("ones", (Tensor(*)(size_t, const std::string &)) & tinytorch::ones,
-           "initialize a tensor with all one", py::arg("size"),
-           py::arg("device"))
-      .def("ones",
-           (Tensor(*)(std::vector<size_t>, const std::string &)) &
-               tinytorch::ones,
-           "initialize a tensor with random numbers", py::arg("shape"),
-           py::arg("device"))
-      .def("rand", (Tensor(*)(size_t, const std::string &)) & tinytorch::rand,
-           "initialize a tensor with random numbers", py::arg("size"),
-           py::arg("device"))
-      .def("rand",
-           (Tensor(*)(std::vector<size_t>, const std::string &)) &
-               tinytorch::rand,
-           "initialize a tensor with random numbers", py::arg("shape"),
-           py::arg("device"))
+  m.def("zeros", &tinytorch::zeros)
+      .def("ones", &tinytorch::ones)
+      .def("rand", &tinytorch::rand)
       .def("sum", &tinytorch::sum, "get the sum result of a tensor")
       .def("square", &tinytorch::square, "get the square result of a tensor");
 }

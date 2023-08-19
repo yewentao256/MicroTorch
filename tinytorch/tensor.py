@@ -18,10 +18,11 @@ class Tensor(_tinytorch.Tensor):
                 super().__init__(data, *args, **kwargs)
 
         else:
-            raise ValueError("Unsupported data type for Tensor initialization")
+            raise ValueError(
+                f"Unsupported type {type(data)} for Tensor initialization")
 
     def __repr__(self) -> str:
-        return self.tensor_str()
+        return self.str()
 
     def __getitem__(self, index: Union[tuple, float]) -> float:
         if isinstance(index, tuple):
@@ -34,46 +35,82 @@ class Tensor(_tinytorch.Tensor):
         else:
             super().__setitem__((index, ), value)
 
-    def __add__(self, other: float) -> Tensor:
-        return Tensor(super().__add__(other))
+    def __add__(self, other: Union[Tensor, int, float]) -> Tensor:
+        if isinstance(other, Tensor):
+            return Tensor(super().__add__(other))
+        return Tensor(super().__add__(Tensor(other)))
 
-    def __mul__(self, other: float) -> Tensor:
-        return Tensor(super().__mul__(other))
+    def __mul__(self, other: Union[Tensor, int, float]) -> Tensor:
+        if isinstance(other, Tensor):
+            return Tensor(super().__mul__(other))
+        return Tensor(super().__mul__(Tensor(other)))
 
-    def __sub__(self, other: float) -> Tensor:
-        return Tensor(super().__sub__(other))
+    def __sub__(self, other: Union[Tensor, int, float]) -> Tensor:
+        if isinstance(other, Tensor):
+            return Tensor(super().__sub__(other))
+        return Tensor(super().__sub__(Tensor(other)))
 
-    def __iadd__(self, other: float) -> Tensor:
-        return Tensor(super().__iadd__(other))
+    def __iadd__(self, other: Union[Tensor, int, float]) -> Tensor:
+        if isinstance(other, Tensor):
+            return Tensor(super().__iadd__(other))
+        return Tensor(super().__iadd__(Tensor(other)))
 
-    def __isub__(self, other: float) -> Tensor:
-        return Tensor(super().__isub__(other))
+    def __isub__(self, other: Union[Tensor, int, float]) -> Tensor:
+        if isinstance(other, Tensor):
+            Tensor(super().__isub__(other))
+        return Tensor(super().__isub__(Tensor(other)))
 
-    def __imul__(self, other: float) -> Tensor:
-        return Tensor(super().__imul__(other))
-    
+    def __imul__(self, other: Union[Tensor, int, float]) -> Tensor:
+        if isinstance(other, Tensor):
+            return Tensor(super().__imul__(other))
+        return Tensor(super().__imul__(Tensor(other)))
+
+    def __rmul__(self, other: Union[Tensor, int, float]) -> Tensor:
+        return self * other
+
+    def __radd__(self, other: Union[Tensor, int, float]) -> Tensor:
+        return self + other
+
+    def __rsub__(self, other: Union[Tensor, int, float]) -> Tensor:
+        return self - other
+
     def cpu(self) -> Tensor:
         return Tensor(super().cpu())
 
     def cuda(self) -> Tensor:
         return Tensor(super().cuda())
 
-
-def zeros(size: list, device: str = 'cpu') -> Tensor:
-    return Tensor(_tinytorch.zeros(size, device))
-
-
-def ones(size: list, device: str = 'cpu') -> Tensor:
-    return Tensor(_tinytorch.ones(size, device))
+    def grad(self) -> Tensor:
+        return Tensor(super().grad())
 
 
-def rand(size: list, device: str = 'cpu') -> Tensor:
-    return Tensor(_tinytorch.rand(size, device))
+def _wrap_scalar_to_list(obj: Union[list, int, float]) -> list:
+    if isinstance(obj, (int, float)):
+        return [obj]
+    return obj
 
 
-def sum(tensor: Tensor) -> float:
+def zeros(size: Union[list, int, float], device: str = 'cpu',
+          requires_grad: bool = False) -> Tensor:
+    return Tensor(_tinytorch.zeros(
+        _wrap_scalar_to_list(size), device, requires_grad))
+
+
+def ones(size: Union[list, int, float], device: str = 'cpu',
+         requires_grad: bool = False) -> Tensor:
+    return Tensor(_tinytorch.ones(
+        _wrap_scalar_to_list(size), device, requires_grad))
+
+
+def rand(size: Union[list, int, float], device: str = 'cpu',
+         requires_grad: bool = False) -> Tensor:
+    return Tensor(_tinytorch.rand(
+        _wrap_scalar_to_list(size), device, requires_grad))
+
+
+def sum(tensor: Tensor) -> Tensor:
     return Tensor(_tinytorch.sum(tensor))
 
 
-def square(tensor: Tensor) -> float:
+def square(tensor: Tensor) -> Tensor:
     return Tensor(_tinytorch.square(tensor))

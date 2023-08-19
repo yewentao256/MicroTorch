@@ -7,6 +7,5 @@ namespace py = pybind11;
 using namespace tinytorch;
 
 void export_graph_function(py::module &m) {
-  m.def("make_parameter", &tinytorch::makeParameter, "initialize the params")
-  .def("backward", &tinytorch::backward, "backward function");
+  m.def("backward", &tinytorch::backward, "backward function");
 }

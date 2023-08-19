@@ -19,11 +19,8 @@ inline void fill_scalar(Tensor& self, const data_t value){
   DISPATCH_OP(fill_impl, self.device(), self, value);
 }
 
-Tensor zeros(size_t size, const std::string& device);
-Tensor zeros(std::vector<size_t> size, const std::string& device);
-Tensor ones(size_t size, const std::string& device);
-Tensor ones(std::vector<size_t> size, const std::string& device);
-Tensor rand(size_t size, const std::string& device);
-Tensor rand(std::vector<size_t> size, const std::string& device);
+Tensor zeros(std::vector<size_t> size, const std::string& device, bool requires_grad=false);
+Tensor ones(std::vector<size_t> size, const std::string& device, bool requires_grad=false);
+Tensor rand(std::vector<size_t> size, const std::string& device, bool requires_grad=false);
 
 }  // namespace tinytorch
