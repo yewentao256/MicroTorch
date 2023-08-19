@@ -2,12 +2,11 @@ import tinytorch
 
 
 def test_main(device: str = "cpu") -> None:
-    observation = tinytorch.rand(30, device)
+    observation = tinytorch.rand(30, device, requires_grad=True)
     target = tinytorch.rand(30, device)
     params = []
     for i in range(4):
-        params.append(tinytorch.rand(30, device))
-        tinytorch.make_parameter(params[-1])
+        params.append(tinytorch.rand(30, device, requires_grad=True))
 
     def model(x: tinytorch.Tensor) -> tinytorch.Tensor:
 
@@ -23,7 +22,6 @@ def test_main(device: str = "cpu") -> None:
     # Optimize the model for 50 iterations
     for i in range(50):
         optimizer.zero_grad()
-
         prediction = model(observation)
         loss = tinytorch.sum(tinytorch.square(prediction - target))
         tinytorch.backward(loss)
@@ -32,5 +30,6 @@ def test_main(device: str = "cpu") -> None:
 
 
 if __name__ == '__main__':
-    # TODO: 看能否支持cuda（optimizer还有个index取值）
-    test_main("cpu")
+    device = "cuda" if tinytorch.is_cuda_available() else "cpu"
+    print(f"using `{device}` to test main")
+    test_main(device)
