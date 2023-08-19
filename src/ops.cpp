@@ -12,8 +12,9 @@ std::ostream& print_with_size(std::ostream& stream, Tensor t, size_t print_size,
   TORCH_CHECK(t.device().is_cpu(), "only support print tensor in cpu now");
   TORCH_CHECK(t.shape().size() == 1, "only support 1d tensor print now");
   stream << "<tinytorch.Tensor[" << name << "] size=" << size
-         << ", device=" << t.device() << ", storage_ptr: " << t.data_ptr()
-         << ">: [";
+         << ", device=" << t.device() << ", requires_grad=" << t.requires_grad()
+         << ", next edge: " << (t.edge() ? t.edge()->node_name() : "no edge")
+         << ", storage_ptr: " << t.data_ptr() << ">: [";
   if (size > print_size) {
     for (size_t i = 0; i < print_size / 2; i++) {
       stream << std::setw(8) << t[i] << " ";
@@ -101,7 +102,8 @@ struct SquareNode : public FunctionNode<SquareNode> {
     DISPATCH_OP(square_impl, ctx.device, ins[0], outs[0]);
   }
 
-  static std::vector<Tensor> backward(Context& ctx, std::vector<Tensor>& grads) {
+  static std::vector<Tensor> backward(Context& ctx,
+                                      std::vector<Tensor>& grads) {
     auto& input = ctx.data.at("input");
     auto& grad_output = grads[0];
     Tensor grad_input = zeros(input.shape(), input.device());
@@ -120,15 +122,13 @@ struct SumNode : public FunctionNode<SumNode> {
 
   static std::vector<Tensor> backward(Context& ctx,
                                       std::vector<Tensor>& grads) {
-    auto& input = ctx.data.at("input");
-    auto& grad_output = grads[0];
+    Tensor& input = ctx.data.at("input");
+    const Tensor& grad_output = grads[0];
     TORCH_CHECK(grad_output.numel() == 1,
                 "grad_output numel should equal to 1");
     // y = a + b + c ..., y'(a) = 1 * grad[0], y'(b) = 1 * grad[1] ...
     Tensor grad_input = zeros(input.shape(), input.device());
-    // TODO: grad_output.cpu() here is temp fix for getting index value from cuda
-    // after supporting index cuda op, we should remove this.
-    DISPATCH_OP(fill_impl, ctx.device, grad_input, grad_output.cpu()[0]);
+    DISPATCH_OP(fill_impl, ctx.device, grad_input, grad_output[0]);
     return {grad_input};
   }
 };

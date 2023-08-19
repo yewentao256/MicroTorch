@@ -25,41 +25,39 @@ struct SGDOptimizer  // stochastic gradient descent
 
   void zeroGrad() {
     for (Tensor &t : params) {
-      t.grad().zero_();
+      if (t.grad().defined()) {
+        t.grad().zero_();
+      }
     }
   }
 
   void step() {
     // update the weight of params
+    // sgd with nesterov momentum, equation from pytorch
+    // see https://pytorch.org/docs/stable/generated/torch.optim.SGD.html
     for (size_t p = 0; p < params.size(); p++) {
       Tensor &param = params[p];
-      Tensor &velocity = velocities[p];
-      if (param.grad().numel() == 0) {
+      if (!param.grad().defined()) {
         continue;
       }
-      for (size_t i = 0; i < param.numel(); i++) {
-        // TODO: 检查这里是否能直接tensor运算，而不需要抽出数值运算
-        TORCH_CHECK(param.shape().size() == 1, "param shape size should be 1");
-        TORCH_CHECK(param.grad().numel() == param.numel(), "grad size and size should be equal.");
-        auto &w = param[i];
-        auto g = param.grad()[i];
-        auto &b = velocity[i];
-        // sgd with nesterov momentum, equation from pytorch
-        // see https://pytorch.org/docs/stable/generated/torch.optim.SGD.html
-        if (momentum != 0) {
-          if (iter > 0) {
-            b = momentum * b + (1 - dampening) * g;
-          } else {
-            b = g;
-          }
-          if (nesterov) {
-            g = g + momentum * b;
-          } else {
-            g = b;
-          }
+      // TORCH_CHECK(param.shape().size() == 1, "param shape size should be 1");
+      TORCH_CHECK(param.grad().numel() == param.numel(),
+                  "grad size and size should be equal.");
+      Tensor grad = param.grad();
+      if (momentum != 0) {
+        if (iter > 0) {
+          velocities[p] = velocities[p] * momentum + grad * (1 - dampening);
+        } else {
+          velocities[p] = grad;
         }
-        w = w - lr * g;
+
+        if (nesterov) {
+          grad += velocities[p] * momentum;
+        } else {
+          grad = velocities[p];
+        }
       }
+      param -= grad * lr;
     }
     iter++;
   }

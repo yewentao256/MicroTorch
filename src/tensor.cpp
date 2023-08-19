@@ -1,6 +1,7 @@
 // tinytorch.cpp
 #include "tensor.hpp"
 
+#include "backward.hpp"
 #include "ops.hpp"
 
 namespace tinytorch {
@@ -18,10 +19,6 @@ TensorImpl::TensorImpl(std::vector<size_t>& shape, Device device,
     stride_[i] = stride;
     stride *= shape_[i];
   }
-  if (requires_grad_) {
-    grad_ =
-        std::make_unique<Tensor>(std::vector<size_t>{numel_}, device, false);
-  }
 }
 
 TensorImpl::TensorImpl(const Storage& storage, std::vector<size_t>& shape,
@@ -32,19 +29,10 @@ TensorImpl::TensorImpl(const Storage& storage, std::vector<size_t>& shape,
       numel_(std::accumulate(shape.begin(), shape.end(), 1,
                              std::multiplies<unsigned long>())),
       storage_(storage),
-      requires_grad_(requires_grad) {
-  if (requires_grad_) {
-    grad_ =
-        std::make_unique<Tensor>(std::vector<size_t>{numel_}, device, false);
-  }
-}
+      requires_grad_(requires_grad) {}
 
 data_t& TensorImpl::operator[](std::vector<size_t> idxs) {
   // this is for updating tensor value
-  // TODO: support index op
-  TORCH_CHECK(
-      device().is_cpu(),
-      "we do not support setting/getting value for cuda tensor currently.");
   TORCH_CHECK(ndim() == idxs.size(), "idxs size should equal to tensor's ndim");
   size_t offset = offset_;
   for (size_t i = 0; i < ndim(); i++) {
@@ -55,8 +43,6 @@ data_t& TensorImpl::operator[](std::vector<size_t> idxs) {
 
 data_t TensorImpl::operator[](std::vector<size_t> idxs) const {
   // this is for getting value
-  TORCH_CHECK(device().is_cpu(),
-              "we do not support getting value for cuda tensor currently.");
   TORCH_CHECK(ndim() == idxs.size(), "idxs size should equal to tensor's ndim");
   size_t offset = offset_;
   for (size_t i = 0; i < ndim(); i++) {
@@ -74,6 +60,24 @@ bool TensorImpl::is_contiguous() const {
     stride *= shape_[i];
   }
   return true;
+}
+
+Tensor::Tensor(std::vector<size_t> shape, Device device, bool requires_grad) {
+  impl_ = std::make_shared<TensorImpl>(shape, Device(device), requires_grad);
+  if (requires_grad) {
+    impl_->set_edge(
+        std::make_shared<Edge>(std::make_shared<AccumulateGrad>(*this), 0));
+  }
+}
+
+Tensor::Tensor(std::vector<data_t> data, Device device, bool requires_grad) {
+  std::vector<size_t> shape = {data.size()};
+  impl_ = std::make_shared<TensorImpl>(shape, Device(device), requires_grad,
+                                       data.data());
+  if (requires_grad) {
+    impl_->set_edge(
+        std::make_shared<Edge>(std::make_shared<AccumulateGrad>(*this), 0));
+  }
 }
 
 Tensor Tensor::cuda() {
@@ -129,11 +133,26 @@ Tensor Tensor::operator*(const Tensor& other) {
   mul_out(*this, other, out);
   return out;
 }
+Tensor Tensor::operator*(const data_t& other) {
+  Tensor out = zeros(this->shape(), this->device());
+  // TODO: to realize a mul kernel with scalar is better
+  Tensor t = zeros(this->shape(), this->device());
+  t.fill_(other);
+  mul_out(*this, t, out);
+  return out;
+}
 
 Tensor& Tensor::operator*=(const Tensor& other) {
   mul_out(*this, other, *this);
   return *this;
 }
+Tensor& Tensor::operator*=(const data_t& other) {
+  Tensor t = zeros(this->shape(), this->device());
+  t.fill_(other);
+  mul_out(*this, t, *this);
+  return *this;
+}
+
 Tensor& Tensor::operator=(const Tensor& other) {
   if (&other == this) {
     return *this;  // handle self-assignment
@@ -148,5 +167,8 @@ Tensor& Tensor::fill_(data_t value) {
   fill_scalar(*this, value);
   return *this;
 }
+
+std::string Tensor::str() { return print_with_size(*this); }
+void Tensor::backward() { ::tinytorch::backward(*this); }
 
 }  // namespace tinytorch
