@@ -1,10 +1,10 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include "../src/ops.hpp"
-#include "../src/tensor.hpp"
+#include "ops.hpp"
+#include "tensor.hpp"
 namespace py = pybind11;
-using namespace tinytorch;
+using namespace microtorch;
 
 void export_tensor_class(py::module &m) {
   py::class_<Tensor>(m, "Tensor")
@@ -48,6 +48,10 @@ void export_tensor_class(py::module &m) {
              self *= other;
              return self;
            })
+      .def("__eq__",
+           [](Tensor &self, const Tensor &other) {
+             return self == other;
+           })
 
       // properties
       .def_property(
@@ -66,6 +70,7 @@ void export_tensor_class(py::module &m) {
       .def("zero_grad", [](Tensor &t) { return t.grad().zero_(); })
       .def("zero_", &Tensor::zero_)
       .def("fill_", &Tensor::fill_)
+      .def("clone", &Tensor::clone)
       .def("numel", &Tensor::numel)
       .def("device", [](Tensor &t) { return t.device().str(); })
       .def("cuda", &Tensor::cuda)
@@ -74,9 +79,9 @@ void export_tensor_class(py::module &m) {
 }
 
 void export_tensor_function(py::module &m) {
-  m.def("zeros", &tinytorch::zeros)
-      .def("ones", &tinytorch::ones)
-      .def("rand", &tinytorch::rand)
-      .def("sum", &tinytorch::sum, "get the sum result of a tensor")
-      .def("square", &tinytorch::square, "get the square result of a tensor");
+  m.def("zeros", &microtorch::zeros)
+      .def("ones", &microtorch::ones)
+      .def("rand", &microtorch::rand)
+      .def("sum", &microtorch::sum, "get the sum result of a tensor")
+      .def("square", &microtorch::square, "get the square result of a tensor");
 }
