@@ -14,7 +14,7 @@ Gone are the intimidating complexities. MicroTorch offers a simplified, intuitiv
 
 With MicroTorch, you can:
 
-- Build your own **Tensor** object
+- Start from scratch and customize a complete Tensor class by yourself.
 - Understand the forward and backward computation processes of basic operators
 - Grasp the construction of computational graphs and the process of automatic differentiation
 - Understand the working mechanism of **SGD(momentum) optimizer**
