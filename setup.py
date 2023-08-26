@@ -7,7 +7,7 @@ import logging
 from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 # Convert distutils Windows platform specifiers to CMake -A arguments
 PLAT_TO_CMAKE = {
@@ -33,11 +33,7 @@ class CMakeBuild(build_ext):
         ext_fullpath = Path.cwd() / self.get_ext_fullpath(ext.name)
         extdir = ext_fullpath.parent.resolve()
 
-        # Using this requires trailing slash for auto-detection & inclusion of
-        # auxiliary "native" libs
-
-        debug = int(os.environ.get("DEBUG", 0)
-                    ) if self.debug is None else self.debug
+        debug = self.debug or int(os.environ.get("DEBUG", 0))
         use_cuda = os.environ.get("CUDA", "OFF")
         cfg = "Debug" if debug else "Release"
 
@@ -77,29 +73,28 @@ class CMakeBuild(build_ext):
             ["cmake", ext.sourcedir] + cmake_args, cwd=build_temp,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT
         )
-        logging.info(f'Using command: `{" ".join(p1.args)}`')
+        logging.info(f'Executing CMake command: `{" ".join(p1.args)}`')
         logging.info(p1.stdout.decode('utf-8', 'ignore'))
         p1.check_returncode()
         p2 = subprocess.run(
             ["cmake", "--build", "."] + build_args, cwd=build_temp,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT
         )
-        logging.info(f'Using command: `{" ".join(p2.args)}`')
+        logging.info(f'Executing CMake command: `{" ".join(p2.args)}`')
         logging.info(p2.stdout.decode('utf-8', 'ignore'))
         p2.check_returncode()
         logging.info('######end of sub process running info######')
 
 
 setup(
-    name="tinytorch",
+    name="microtorch",
     version=__version__,
     author="yewentao",
     author_email="zhyanwentao@outlook.com",
-    description="TinyTorch: A simplest pytorch implementation for learning",
-    # we don't need sources here, since we only need a name for Extension
-    ext_modules=[CMakeExtension("_tinytorch")],
+    description="MicroTorch: A simplest pytorch implementation for learning",
+    ext_modules=[CMakeExtension("_microtorch")],
     cmdclass={"build_ext": CMakeBuild},
     extras_require={"test": ["pytest>=6.0"]},
-    python_requires=">=3.7",
-    packages=['tinytorch'],
+    python_requires=">=3.8",
+    packages=['microtorch'],
 )
