@@ -45,8 +45,6 @@ def test_autograd_2() -> None:
 
     c.backward()    # dc/dx = y*b = 4*7 = 28 and dc/dy = x*b = 3*7 = 21
 
-    print(x.grad())
-    print(y.grad())
     assert x.grad()[0] == 40.0
     assert y.grad()[0] == 33.0
 

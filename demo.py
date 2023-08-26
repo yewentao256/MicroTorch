@@ -2,14 +2,13 @@ import microtorch
 
 
 def test_main(device: str = "cpu") -> None:
-    observation = microtorch.rand(30, device, requires_grad=True)
-    target = microtorch.rand(30, device)
+    observation = microtorch.rand(256, device, requires_grad=True)
+    target = microtorch.rand(256, device)
     params = []
     for i in range(4):
-        params.append(microtorch.rand(30, device, requires_grad=True))
+        params.append(microtorch.rand(256, device, requires_grad=True))
 
     def model(x: microtorch.Tensor) -> microtorch.Tensor:
-
         x = x * params[0]
         x = x + params[1]
         x = x * params[2]
