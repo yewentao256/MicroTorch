@@ -1,5 +1,5 @@
-from microtorch import (Tensor, ones, SGDOptimizer,
-                       sum, square, is_cuda_available)
+from microtorch import Tensor, ones, SGDOptimizer, sum, square
+import microtorch
 
 
 def test_one_iter(device="cpu") -> None:
@@ -70,7 +70,7 @@ def test_three_iter_momentum_nesterov(device="cpu") -> None:
 if __name__ == "__main__":
     test_one_iter("cpu")
     test_three_iter_momentum_nesterov("cpu")
-    if is_cuda_available():
+    if microtorch.cuda.is_cuda_available():
         test_one_iter("cuda")
         test_three_iter_momentum_nesterov("cuda")
     print('successfully pass the test!')
