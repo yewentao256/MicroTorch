@@ -102,7 +102,7 @@ class Allocator {
       cache_.erase(iter);
     } else {
       res = do_allocate(size);
-      TORCH_CHECK(res, "failed to allocate", size, "memory.");
+      TORCH_CHECK(res, "failed to allocate ", size, " memory.");
     }
     allocate_memory_size_ += size;
     return res;

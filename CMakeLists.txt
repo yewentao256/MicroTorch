@@ -20,7 +20,6 @@ if (MSVC)
 endif()
 
 # all the src files
-# file (GLOB HEADER_FILES "include/*.hpp")
 file (GLOB CORE_FILES "src/core/*.cpp")
 file (GLOB CPU_FILES "src/cpu/*.cpp")
 file (GLOB BINDING_FILES "src/binding/*.cpp")

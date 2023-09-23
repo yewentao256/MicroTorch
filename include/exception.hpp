@@ -3,6 +3,8 @@
 #include <iostream>
 #include <sstream>
 
+namespace microtorch {
+
 template <typename T>
 void printTemplate(std::ostringstream& oss, const T& value) {
   oss << value << " ";
@@ -28,3 +30,5 @@ void printTemplate(std::ostringstream& oss, const T& value,
       std::abort();                                                     \
     }                                                                   \
   } while (false)
+
+}  // namespace microtorch

@@ -1,8 +1,8 @@
 #pragma once
 
 #include "context.hpp"
-#include "tensor.hpp"
 #include "engine.hpp"
+#include "tensor.hpp"
 
 namespace microtorch {
 
@@ -13,14 +13,28 @@ void fill_impl<Host>(Tensor& self, const data_t value);
 template <>
 void fill_impl<Cuda>(Tensor& self, const data_t value);
 
-inline void fill_scalar(Tensor& self, const data_t value){
+template <typename Device>
+void rand_impl(Tensor& self);
+template <>
+void rand_impl<Host>(Tensor& self);
+template <>
+void rand_impl<Cuda>(Tensor& self);
+
+inline void fill_scalar(Tensor& self, const data_t value) {
   DISPATCH_OP(fill_impl, self.device(), self, value);
 }
 
-Tensor zeros(std::vector<size_t> size, const std::string& device, bool requires_grad=false);
-Tensor ones(std::vector<size_t> size, const std::string& device, bool requires_grad=false);
-Tensor rand(std::vector<size_t> size, const std::string& device, bool requires_grad=false);
+inline Tensor rand(std::vector<size_t> size, const std::string& device,
+                   bool requires_grad = false) {
+  Tensor t(size, device, requires_grad);
+  DISPATCH_OP(rand_impl, t.device(), t);
+  return t;
+}
 
+Tensor zeros(std::vector<size_t> size, const std::string& device,
+             bool requires_grad = false);
+Tensor ones(std::vector<size_t> size, const std::string& device,
+            bool requires_grad = false);
 
 template <typename Device>
 void clone_impl(const Tensor& a, Tensor& out);
