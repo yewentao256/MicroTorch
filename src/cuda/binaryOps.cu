@@ -1,13 +1,12 @@
-#include <math.h>  // function to add the elements of two arrays
-
+#include "cuda.hpp"
 #include "ops.hpp"
 
 namespace microtorch {
 
-__global__ void add(size_t n, float *a, float *b, float *out) {
+__global__ void add_kernel(size_t n, float *a, float *b, float *out) {
   // one dimension layout
-  // blockDim.x: block size
-  // gridDim.x: grid size (how many blocks)
+  // blockDim.x: block size (threads per block)
+  // gridDim.x: grid size (blocks per grid)
   // blockIdx.x: current block index in grid
   // threadIdx.x: current thread index in block.
   size_t index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -19,21 +18,14 @@ __global__ void add(size_t n, float *a, float *b, float *out) {
 
 template <>
 void add_impl<Cuda>(Tensor &a, Tensor &b, Tensor &out) {
-  float *a_ptr = a.data_ptr();
-  float *b_ptr = b.data_ptr();
-  float *out_ptr = out.data_ptr();
-
-  size_t blockSize = 256;
-  size_t numBlocks = (out.numel() + blockSize - 1) / blockSize;  // Ceilling
-  add<<<numBlocks, blockSize>>>(out.numel(), a_ptr, b_ptr, out_ptr);
-  cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
-    printf("CUDA error: %s\n", cudaGetErrorString(err));
-  }
+  size_t blocks_per_grid = get_blocks_per_grid(out.numel());
+  add_kernel<<<blocks_per_grid, ThreadsPerBlock>>>(
+      out.numel(), a.data_ptr(), b.data_ptr(), out.data_ptr());
+  CUDA_ERROR_CHECK();
 }
 
-__global__ void add_backward(size_t n, float *grad_output, float *grad_input_1,
-                             float *grad_input_2) {
+__global__ void add_backward_kernel(size_t n, float *grad_output,
+                                    float *grad_input_1, float *grad_input_2) {
   size_t index = blockIdx.x * blockDim.x + threadIdx.x;
   size_t stride = blockDim.x * gridDim.x;
   for (size_t i = index; i < n; i += stride) {
@@ -46,22 +38,14 @@ __global__ void add_backward(size_t n, float *grad_output, float *grad_input_1,
 template <>
 void add_backward_impl<Cuda>(Tensor &grad_output, Tensor &grad_input_1,
                              Tensor &grad_input_2) {
-  float *grad_output_ptr = grad_output.data_ptr();
-  float *grad_input_1_ptr = grad_input_1.data_ptr();
-  float *grad_input_2_ptr = grad_input_2.data_ptr();
-
-  size_t blockSize = 256;
-  size_t numBlocks =
-      (grad_output.numel() + blockSize - 1) / blockSize;  // Ceilling
-  add_backward<<<numBlocks, blockSize>>>(grad_output.numel(), grad_output_ptr,
-                                         grad_input_1_ptr, grad_input_2_ptr);
-  cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
-    printf("CUDA error: %s\n", cudaGetErrorString(err));
-  }
+  size_t blocks_per_grid = get_blocks_per_grid(grad_output.numel());
+  add_backward_kernel<<<blocks_per_grid, ThreadsPerBlock>>>(
+      grad_output.numel(), grad_output.data_ptr(), grad_input_1.data_ptr(),
+      grad_input_2.data_ptr());
+  CUDA_ERROR_CHECK();
 }
 
-__global__ void sub(size_t n, float *a, float *b, float *out) {
+__global__ void sub_kernel(size_t n, float *a, float *b, float *out) {
   size_t index = blockIdx.x * blockDim.x + threadIdx.x;
   size_t stride = blockDim.x * gridDim.x;
   for (size_t i = index; i < n; i += stride) {
@@ -71,21 +55,14 @@ __global__ void sub(size_t n, float *a, float *b, float *out) {
 
 template <>
 void sub_impl<Cuda>(Tensor &a, Tensor &b, Tensor &out) {
-  float *a_ptr = a.data_ptr();
-  float *b_ptr = b.data_ptr();
-  float *out_ptr = out.data_ptr();
-
-  size_t blockSize = 256;
-  size_t numBlocks = (out.numel() + blockSize - 1) / blockSize;  // Ceilling
-  sub<<<numBlocks, blockSize>>>(out.numel(), a_ptr, b_ptr, out_ptr);
-  cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
-    printf("CUDA error: %s\n", cudaGetErrorString(err));
-  }
+  size_t blocks_per_grid = get_blocks_per_grid(out.numel());
+  sub_kernel<<<blocks_per_grid, ThreadsPerBlock>>>(
+      out.numel(), a.data_ptr(), b.data_ptr(), out.data_ptr());
+  CUDA_ERROR_CHECK();
 }
 
-__global__ void sub_backward(size_t n, float *grad_output, float *grad_input_1,
-                             float *grad_input_2) {
+__global__ void sub_backward_kernel(size_t n, float *grad_output,
+                                    float *grad_input_1, float *grad_input_2) {
   size_t index = blockIdx.x * blockDim.x + threadIdx.x;
   size_t stride = blockDim.x * gridDim.x;
   for (size_t i = index; i < n; i += stride) {
@@ -98,22 +75,14 @@ __global__ void sub_backward(size_t n, float *grad_output, float *grad_input_1,
 template <>
 void sub_backward_impl<Cuda>(Tensor &grad_output, Tensor &grad_input_1,
                              Tensor &grad_input_2) {
-  float *grad_output_ptr = grad_output.data_ptr();
-  float *grad_input_1_ptr = grad_input_1.data_ptr();
-  float *grad_input_2_ptr = grad_input_2.data_ptr();
-
-  size_t blockSize = 256;
-  size_t numBlocks =
-      (grad_output.numel() + blockSize - 1) / blockSize;  // Ceilling
-  sub_backward<<<numBlocks, blockSize>>>(grad_output.numel(), grad_output_ptr,
-                                         grad_input_1_ptr, grad_input_2_ptr);
-  cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
-    printf("CUDA error: %s\n", cudaGetErrorString(err));
-  }
+  size_t blocks_per_grid = get_blocks_per_grid(grad_output.numel());
+  sub_backward_kernel<<<blocks_per_grid, ThreadsPerBlock>>>(
+      grad_output.numel(), grad_output.data_ptr(), grad_input_1.data_ptr(),
+      grad_input_2.data_ptr());
+  CUDA_ERROR_CHECK();
 }
 
-__global__ void mul(size_t n, float *a, float *b, float *out) {
+__global__ void mul_kernel(size_t n, float *a, float *b, float *out) {
   size_t index = blockIdx.x * blockDim.x + threadIdx.x;
   size_t stride = blockDim.x * gridDim.x;
   for (size_t i = index; i < n; i += stride) {
@@ -123,21 +92,15 @@ __global__ void mul(size_t n, float *a, float *b, float *out) {
 
 template <>
 void mul_impl<Cuda>(Tensor &a, Tensor &b, Tensor &out) {
-  float *a_ptr = a.data_ptr();
-  float *b_ptr = b.data_ptr();
-  float *out_ptr = out.data_ptr();
-
-  size_t blockSize = 256;
-  size_t numBlocks = (out.numel() + blockSize - 1) / blockSize;  // Ceilling
-  mul<<<numBlocks, blockSize>>>(out.numel(), a_ptr, b_ptr, out_ptr);
-  cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
-    printf("CUDA error: %s\n", cudaGetErrorString(err));
-  }
+  size_t blocks_per_grid = get_blocks_per_grid(out.numel());
+  mul_kernel<<<blocks_per_grid, ThreadsPerBlock>>>(
+      out.numel(), a.data_ptr(), b.data_ptr(), out.data_ptr());
+  CUDA_ERROR_CHECK();
 }
 
-__global__ void mul_backward(size_t n, float *grad_output, float *grad_input_1,
-                             float *grad_input_2, float *a, float *b) {
+__global__ void mul_backward_kernel(size_t n, float *grad_output,
+                                    float *grad_input_1, float *grad_input_2,
+                                    float *a, float *b) {
   size_t index = blockIdx.x * blockDim.x + threadIdx.x;
   size_t stride = blockDim.x * gridDim.x;
   for (size_t i = index; i < n; i += stride) {
@@ -150,27 +113,15 @@ __global__ void mul_backward(size_t n, float *grad_output, float *grad_input_1,
 template <>
 void mul_backward_impl<Cuda>(Tensor &grad_output, Tensor &grad_input_1,
                              Tensor &grad_input_2, Tensor &a, Tensor &b) {
-  float *grad_output_ptr = grad_output.data_ptr();
-  float *grad_input_1_ptr = grad_input_1.data_ptr();
-  float *grad_input_2_ptr = grad_input_2.data_ptr();
-
-  float *a_ptr = a.data_ptr();
-  float *b_ptr = b.data_ptr();
-
-  size_t blockSize = 256;
-  size_t numBlocks =
-      (grad_output.numel() + blockSize - 1) / blockSize;  // Ceilling
-  mul_backward<<<numBlocks, blockSize>>>(grad_output.numel(), grad_output_ptr,
-                                         grad_input_1_ptr, grad_input_2_ptr,
-                                         a_ptr, b_ptr);
-  cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
-    printf("CUDA error: %s\n", cudaGetErrorString(err));
-  }
+  size_t blocks_per_grid = get_blocks_per_grid(grad_output.numel());
+  mul_backward_kernel<<<blocks_per_grid, ThreadsPerBlock>>>(
+      grad_output.numel(), grad_output.data_ptr(), grad_input_1.data_ptr(),
+      grad_input_2.data_ptr(), a.data_ptr(), b.data_ptr());
+  CUDA_ERROR_CHECK();
 }
 
-__global__ void equal(size_t n, float *a, float *b, float *out,
-                      const float epsilon) {
+__global__ void equal_kernel(size_t n, float *a, float *b, float *out,
+                             const float epsilon) {
   size_t index = blockIdx.x * blockDim.x + threadIdx.x;
   size_t stride = blockDim.x * gridDim.x;
   for (size_t i = index; i < n; i += stride) {
@@ -181,17 +132,10 @@ __global__ void equal(size_t n, float *a, float *b, float *out,
 template <>
 void equal_impl<Cuda>(const Tensor &a, const Tensor &b, Tensor &out,
                       const float epsilon) {
-  auto a_ptr = a.data_ptr();
-  auto b_ptr = b.data_ptr();
-  auto out_ptr = out.data_ptr();
-
-  size_t blockSize = 256;
-  size_t numBlocks = (out.numel() + blockSize - 1) / blockSize;  // Ceilling
-  equal<<<numBlocks, blockSize>>>(out.numel(), a_ptr, b_ptr, out_ptr, epsilon);
-  cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
-    printf("CUDA error: %s\n", cudaGetErrorString(err));
-  }
+  size_t blocks_per_grid = get_blocks_per_grid(out.numel());
+  equal_kernel<<<blocks_per_grid, ThreadsPerBlock>>>(
+      out.numel(), a.data_ptr(), b.data_ptr(), out.data_ptr(), epsilon);
+  CUDA_ERROR_CHECK();
 }
 
 }  // namespace microtorch

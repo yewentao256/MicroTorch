@@ -1,8 +1,9 @@
+#include "cuda.hpp"
 #include "ops.hpp"
 
 namespace microtorch {
 
-__global__ void square(size_t n, float *a, float *out) {
+__global__ void square_kernel(size_t n, float *a, float *out) {
   size_t index = blockIdx.x * blockDim.x + threadIdx.x;
   size_t stride = blockDim.x * gridDim.x;
   for (size_t i = index; i < n; i += stride) {
@@ -12,20 +13,15 @@ __global__ void square(size_t n, float *a, float *out) {
 
 template <>
 void square_impl<Cuda>(Tensor &a, Tensor &out) {
-  float *a_ptr = a.data_ptr();
-  float *out_ptr = out.data_ptr();
-
-  size_t blockSize = 256;
-  size_t numBlocks = (a.numel() + blockSize - 1) / blockSize;  // Ceilling
-  square<<<numBlocks, blockSize>>>(a.numel(), a_ptr, out_ptr);
-  cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
-    printf("CUDA error: %s\n", cudaGetErrorString(err));
-  }
+  size_t blocks_per_grid = get_blocks_per_grid(a.numel());
+  square_kernel<<<blocks_per_grid, ThreadsPerBlock>>>(a.numel(), a.data_ptr(),
+                                                      out.data_ptr());
+  CUDA_ERROR_CHECK();
 }
 
-__global__ void square_backward(size_t n, float *grad_output_ptr,
-                                float *grad_input_ptr, float *input_ptr) {
+__global__ void square_backward_kernel(size_t n, float *grad_output_ptr,
+                                       float *grad_input_ptr,
+                                       float *input_ptr) {
   size_t index = blockIdx.x * blockDim.x + threadIdx.x;
   size_t stride = blockDim.x * gridDim.x;
   for (size_t i = index; i < n; i += stride) {
@@ -37,19 +33,11 @@ __global__ void square_backward(size_t n, float *grad_output_ptr,
 template <>
 void square_backward_impl<Cuda>(Tensor &grad_output, Tensor &grad_input,
                                 Tensor &input) {
-  float *grad_output_ptr = grad_output.data_ptr();
-  float *grad_input_ptr = grad_input.data_ptr();
-  float *input_ptr = input.data_ptr();
-
-  size_t blockSize = 256;
-  size_t numBlocks =
-      (grad_output.numel() + blockSize - 1) / blockSize;  // Ceilling
-  square_backward<<<numBlocks, blockSize>>>(grad_output.numel(), grad_output_ptr,
-                                         grad_input_ptr, input_ptr);
-  cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
-    printf("CUDA error: %s\n", cudaGetErrorString(err));
-  }
+  size_t blocks_per_grid = get_blocks_per_grid(grad_output.numel());
+  square_backward_kernel<<<blocks_per_grid, ThreadsPerBlock>>>(
+      grad_output.numel(), grad_output.data_ptr(), grad_input.data_ptr(),
+      input.data_ptr());
+  CUDA_ERROR_CHECK();
 }
 
 }  // namespace microtorch
