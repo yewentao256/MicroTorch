@@ -15,7 +15,7 @@ add_compile_options("$<$<CONFIG:RELEASE>:-O3;-Wall;-fPIC>")
 
 # MSVC specific flags, if needed, cmake auto detection variable
 if (MSVC)
-    add_compile_options("$<$<CONFIG:DEBUG>:/MTd>")
+    add_compile_options("$<$<CONFIG:DEBUG>:/MTd;/Zi>")
     add_compile_options("$<$<CONFIG:RELEASE>:/MT>")
 endif()
 
@@ -35,6 +35,7 @@ pybind11_add_module(${MICROTORCH}
 # cuda
 option(CUDA "Whether to use CUDA when available" OFF)
 if(CUDA)
+    message("Configuring Cuda mode.")
     # compile for all architecture
     cmake_policy(SET CMP0104 OLD)
 
@@ -58,3 +59,6 @@ endif()
 
 # For including header files
 target_include_directories(${MICROTORCH} PRIVATE include)
+
+# print symbol info
+message("Using ${CMAKE_BUILD_TYPE} mode.")

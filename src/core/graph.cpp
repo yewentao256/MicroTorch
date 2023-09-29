@@ -6,6 +6,7 @@ namespace microtorch {
 
 const char* Edge::node_name() {
   if (function_node) {
+    // TODO: fix the warning here
     return typeid(*function_node).name();
   } else {
     return "no function node";

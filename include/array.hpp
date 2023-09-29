@@ -37,6 +37,7 @@ struct ArrayRef {
   std::vector<int64_t>& vec() { return data_; }
   const std::vector<int64_t>& vec() const { return data_; }
   int64_t numel() const {
+    if (data_.empty()) return 0;
     int64_t result = 1;
     for (auto data : data_) {
       result *= data;

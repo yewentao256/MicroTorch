@@ -29,6 +29,6 @@ def test_main(device: str = "cpu") -> None:
 
 
 if __name__ == '__main__':
-    device = "cuda" if microtorch.is_cuda_available() else "cpu"
+    device = "cuda" if microtorch.cuda.is_cuda_available() else "cpu"
     print(f"using `{device}` to test main")
     test_main(device)
