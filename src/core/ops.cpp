@@ -6,9 +6,10 @@
 
 namespace microtorch {
 
-std::ostream& print_with_size(std::ostream& stream, Tensor t, size_t print_size,
+std::ostream& print_with_size(std::ostream& stream, Tensor t,
+                              int64_t print_size,
                               const std::string& name = "name") {
-  size_t size = t.numel();
+  int64_t size = t.numel();
   TORCH_CHECK(t.device().is_cpu(), "only support print tensor in cpu now");
   TORCH_CHECK(t.shape().size() == 1, "only support 1d tensor print now");
   stream << "<microtorch.Tensor[" << name << "] size=" << size
@@ -16,15 +17,15 @@ std::ostream& print_with_size(std::ostream& stream, Tensor t, size_t print_size,
          << ", next edge: " << (t.edge() ? t.edge()->node_name() : "no edge")
          << ", storage_ptr: " << t.data_ptr() << ">: [";
   if (size > print_size) {
-    for (size_t i = 0; i < print_size / 2; i++) {
+    for (int64_t i = 0; i < print_size / 2; i++) {
       stream << std::setw(8) << t[i] << " ";
     }
     stream << " ... ";
-    for (size_t i = size - print_size / 2; i < size; i++) {
+    for (int64_t i = size - print_size / 2; i < size; i++) {
       stream << std::setw(8) << t[i] << " ";
     }
   } else {
-    for (size_t i = 0; i < size; i++) {
+    for (int64_t i = 0; i < size; i++) {
       stream << std::setw(8) << t[i] << " ";
     }
   }
@@ -32,7 +33,7 @@ std::ostream& print_with_size(std::ostream& stream, Tensor t, size_t print_size,
   return stream;
 }
 
-std::string print_with_size(Tensor t, size_t print_size,
+std::string print_with_size(Tensor t, int64_t print_size,
                             const std::string& name) {
   std::ostringstream s;
   print_with_size(s, t, print_size, name);
@@ -44,9 +45,11 @@ std::ostream& operator<<(std::ostream& stream, Tensor t) {
 }
 
 struct AddNode : public FunctionNode<AddNode> {
-  static void forward(Context& ctx, std::vector<Tensor>& ins,
-                      std::vector<Tensor>& outs) {
-    DISPATCH_OP(add_impl, ctx.device, ins[0], ins[1], outs[0]);
+  static std::vector<Tensor> forward(Context& ctx, const Tensor& a,
+                                     const Tensor& b) {
+    Tensor out = zeros(a.shape(), a.device(), a.requires_grad());
+    DISPATCH_OP(add_impl, a.device(), a, b, out);
+    return {out};
   }
   static std::vector<Tensor> backward(Context& ctx,
                                       std::vector<Tensor>& grads) {
@@ -59,12 +62,27 @@ struct AddNode : public FunctionNode<AddNode> {
   }
 };
 
-struct SubNode : public FunctionNode<SubNode> {
-  static void forward(Context& ctx, std::vector<Tensor>& ins,
-                      std::vector<Tensor>& outs) {
-    DISPATCH_OP(sub_impl, ctx.device, ins[0], ins[1], outs[0]);
-  }
+Tensor Tensor::operator+(const Tensor& other) {
+  check_device_shape({*this, other});
+  return AddNode::forward_and_build_graph(*this, other)[0];
+}
 
+Tensor& Tensor::operator+=(const Tensor& other) {
+  check_device_shape({*this, other});
+  TORCH_CHECK(
+      !this->requires_grad() || !GradModeController::is_enabled(),
+      "Tensor that requires grad is being used in an in-place operation");
+  DISPATCH_OP(add_impl, this->device(), *this, other, *this);
+  return *this;
+}
+
+struct SubNode : public FunctionNode<SubNode> {
+  static std::vector<Tensor> forward(Context& ctx, const Tensor& a,
+                                     const Tensor& b) {
+    Tensor out = zeros(a.shape(), a.device(), a.requires_grad());
+    DISPATCH_OP(sub_impl, a.device(), a, b, out);
+    return {out};
+  }
   static std::vector<Tensor> backward(Context& ctx,
                                       std::vector<Tensor>& grads) {
     auto& grad_output = grads[0];
@@ -76,13 +94,29 @@ struct SubNode : public FunctionNode<SubNode> {
   }
 };
 
+Tensor Tensor::operator-(const Tensor& other) {
+  check_device_shape({*this, other});
+  return SubNode::forward_and_build_graph(*this, other)[0];
+}
+
+Tensor& Tensor::operator-=(const Tensor& other) {
+  check_device_shape({*this, other});
+  TORCH_CHECK(
+      !this->requires_grad() || !GradModeController::is_enabled(),
+      "Tensor that requires grad is being used in an in-place operation");
+  DISPATCH_OP(sub_impl, this->device(), *this, other, *this);
+  return *this;
+}
+
 struct MulNode : public FunctionNode<MulNode> {
-  static void forward(Context& ctx, std::vector<Tensor>& ins,
-                      std::vector<Tensor>& outs) {
+  static std::vector<Tensor> forward(Context& ctx, const Tensor& a,
+                                     const Tensor& b) {
     // save tensor data to context
-    ctx.data.emplace("a", ins[0]);
-    ctx.data.emplace("b", ins[1]);
-    DISPATCH_OP(mul_impl, ctx.device, ins[0], ins[1], outs[0]);
+    ctx.data.emplace("a", a);
+    ctx.data.emplace("b", b);
+    Tensor out = zeros(a.shape(), a.device(), a.requires_grad());
+    DISPATCH_OP(mul_impl, a.device(), a, b, out);
+    return {out};
   }
 
   static std::vector<Tensor> backward(Context& ctx,
@@ -95,6 +129,36 @@ struct MulNode : public FunctionNode<MulNode> {
     return {grad_input_1, grad_input_2};
   }
 };
+
+Tensor Tensor::operator*(const Tensor& other) {
+  check_device_shape({*this, other});
+  return MulNode::forward_and_build_graph(*this, other)[0];
+}
+Tensor Tensor::operator*(const data_t& other) {
+  // TODO: to realize a mul kernel with scalar is better
+  Tensor t = zeros(this->shape(), this->device());
+  t.fill_(other);
+  return MulNode::forward_and_build_graph(*this, t)[0];
+}
+
+Tensor& Tensor::operator*=(const Tensor& other) {
+  check_device_shape({*this, other});
+  TORCH_CHECK(
+      !this->requires_grad() || !GradModeController::is_enabled(),
+      "Tensor that requires grad is being used in an in-place operation");
+  DISPATCH_OP(mul_impl, this->device(), *this, other, *this);
+  return *this;
+}
+Tensor& Tensor::operator*=(const data_t& other) {
+  Tensor t = zeros(this->shape(), this->device());
+  t.fill_(other);
+  TORCH_CHECK(
+      !this->requires_grad() || !GradModeController::is_enabled(),
+      "Tensor that requires grad is being used in an in-place operation");
+  DISPATCH_OP(mul_impl, this->device(), *this, t, *this);
+  return *this;
+}
+
 struct SquareNode : public FunctionNode<SquareNode> {
   static void forward(Context& ctx, std::vector<Tensor>& ins,
                       std::vector<Tensor>& outs) {
@@ -150,12 +214,6 @@ struct CloneNode : public FunctionNode<CloneNode> {
 };
 
 void initialize_ops() {
-  OpRegistry::Instance().RegisterOp(
-      "add", &(FunctionNode<AddNode>::forward_and_build_graph));
-  OpRegistry::Instance().RegisterOp(
-      "sub", &(FunctionNode<SubNode>::forward_and_build_graph));
-  OpRegistry::Instance().RegisterOp(
-      "mul", &(FunctionNode<MulNode>::forward_and_build_graph));
   OpRegistry::Instance().RegisterOp(
       "square", &(FunctionNode<SquareNode>::forward_and_build_graph));
   OpRegistry::Instance().RegisterOp(

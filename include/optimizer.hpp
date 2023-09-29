@@ -2,6 +2,7 @@
 
 #include "ops.hpp"
 #include "tensor.hpp"
+#include "graph.hpp"
 
 namespace microtorch {
 
@@ -16,7 +17,7 @@ struct SGDOptimizer  // stochastic gradient descent
 
   SGDOptimizer(std::vector<Tensor> t_lst, float lr, float momentum = 0.0,
                float dampening = 0.0)
-      : params(t_lst), lr(lr), momentum(momentum), dampening(dampening) {
+      : lr(lr), momentum(momentum), dampening(dampening), params(t_lst) {
     // initialize velocities
     velocities.resize(t_lst.size());
     for (size_t i = 0; i < t_lst.size(); ++i) {
@@ -36,6 +37,7 @@ struct SGDOptimizer  // stochastic gradient descent
     // update the weight of params
     // sgd with nesterov momentum, equation from pytorch
     // see https://pytorch.org/docs/stable/generated/torch.optim.SGD.html
+    AutoGradGuard guard(false);
     for (size_t p = 0; p < params.size(); p++) {
       Tensor &param = params[p];
       if (!param.grad().defined()) {

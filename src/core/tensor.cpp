@@ -101,52 +101,6 @@ Tensor Tensor::cpu() {
   return *this;
 }
 
-Tensor Tensor::operator+(const Tensor& other) {
-  Tensor out = zeros(this->shape(), this->device());
-  add_out(*this, other, out);
-  return out;
-}
-
-Tensor& Tensor::operator+=(const Tensor& other) {
-  add_out(*this, other, *this);
-  return *this;
-}
-
-Tensor Tensor::operator-(const Tensor& other) {
-  Tensor out = zeros(this->shape(), this->device());
-  sub_out(*this, other, out);
-  return out;
-}
-
-Tensor& Tensor::operator-=(const Tensor& other) {
-  sub_out(*this, other, *this);
-  return *this;
-}
-
-Tensor Tensor::operator*(const Tensor& other) {
-  Tensor out = zeros(this->shape(), this->device());
-  mul_out(*this, other, out);
-  return out;
-}
-Tensor Tensor::operator*(const data_t& other) {
-  Tensor out = zeros(this->shape(), this->device());
-  // TODO: to realize a mul kernel with scalar is better
-  Tensor t = zeros(this->shape(), this->device());
-  t.fill_(other);
-  mul_out(*this, t, out);
-  return out;
-}
-
-Tensor& Tensor::operator*=(const Tensor& other) {
-  mul_out(*this, other, *this);
-  return *this;
-}
-Tensor& Tensor::operator*=(const data_t& other) {
-  Tensor t = zeros(this->shape(), this->device());
-  t.fill_(other);
-  mul_out(*this, t, *this);
-  return *this;
-}
 
 Tensor& Tensor::operator=(const Tensor& other) {
   if (&other == this) {

@@ -23,6 +23,7 @@ namespace microtorch {
   }
 #endif
 
+// TODO: remove this op registry, which only supports tensor param
 typedef void (*ApplyFunc)(std::vector<Tensor>&, std::vector<Tensor>&);
 
 class OpRegistry {
