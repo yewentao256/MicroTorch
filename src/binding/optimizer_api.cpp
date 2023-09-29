@@ -1,9 +1,6 @@
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-
+#include "binding.hpp"
 #include "optimizer.hpp"
 
-namespace py = pybind11;
 using namespace microtorch;
 
 void export_optimizer_class(py::module &m) {

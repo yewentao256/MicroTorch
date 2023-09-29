@@ -69,8 +69,9 @@ def test_tensor_two_dimension() -> None:
     
 
 def test_big_tensor() -> None:
-    t = microtorch.rand([1024, 1024, 64])   # tensor with 256 MB
+    t = microtorch.rand([1024, 1024, 32])   # tensor with 128 MB
     t.fill_(100)
+    assert t[0, 0, 0] == 100
 
 
 if __name__ == "__main__":

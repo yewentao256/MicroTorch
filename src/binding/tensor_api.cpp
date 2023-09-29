@@ -1,9 +1,7 @@
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
 
+#include "binding.hpp"
 #include "ops.hpp"
-#include "tensor.hpp"
-namespace py = pybind11;
+
 using namespace microtorch;
 
 void export_tensor_class(py::module &m) {
@@ -16,11 +14,11 @@ void export_tensor_class(py::module &m) {
       .def("str", [](Tensor &t) { return t.str(); })
       .def(
           "__getitem__",
-          [](const Tensor &t, std::vector<size_t> idxs) { return t[idxs]; },
+          [](const Tensor &t, ArrayRef idxs) { return t[idxs]; },
           py::is_operator())
       .def(
           "__setitem__",
-          [](Tensor &t, std::vector<size_t> idxs, const data_t &value) {
+          [](Tensor &t, ArrayRef idxs, const data_t &value) {
             t[idxs] = value;
           },
           py::is_operator())

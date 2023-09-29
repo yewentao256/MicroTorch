@@ -29,9 +29,9 @@ def test_cuda() -> None:
 def test_big_cuda_tensor():
     if not microtorch.cuda.is_cuda_available():
         return
-    # TODO: here [2, 1024, 1024, 1024] will cause a memory error
-    t = microtorch.rand([1, 1024, 1024, 1024], "cuda")  # 4GB tensor
+    t = microtorch.rand([4, 1024, 1024, 1024], "cuda")  # 16GB tensor
     t.fill_(100)
+    assert t[0, 0, 0, 0] == 100
 
 
 if __name__ == "__main__":

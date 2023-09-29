@@ -1,4 +1,4 @@
-#include <pybind11/pybind11.h>
+#include "binding.hpp"
 
 #ifdef USE_CUDA
 #include <cuda_runtime.h>
@@ -6,8 +6,6 @@
 #else
 #define CUDA_AVAILABLE false
 #endif
-
-namespace py = pybind11;
 
 void cuda_synchronize() {
 #ifdef USE_CUDA
