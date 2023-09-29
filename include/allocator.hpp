@@ -21,12 +21,12 @@ class Allocator {
   // class to deallocate the `unique_ptr` with
   class mutable_delete_handler {
    public:
-    mutable_delete_handler(size_t size, Allocator* allocator)
+    mutable_delete_handler(int64_t size, Allocator* allocator)
         : size_(size), allocator_(allocator) {}
     void operator()(void* ptr) { allocator_->deallocate(ptr, size_); }
 
    private:
-    size_t size_;
+    int64_t size_;
     Allocator* allocator_;
   };
 
@@ -50,7 +50,7 @@ class Allocator {
   using ImmutableUniquePtr = std::unique_ptr<T, immutable_delete_handler<T>>;
 
   template <typename T>
-  std::shared_ptr<T> shared_allocate(size_t nbytes) {
+  std::shared_ptr<T> shared_allocate(int64_t nbytes) {
     /* allocate the nbytes, return shared_ptr */
     void* raw_ptr = allocate(nbytes);
     return std::shared_ptr<T>(static_cast<T*>(raw_ptr),
@@ -58,7 +58,7 @@ class Allocator {
   }
 
   template <typename T>
-  MutableUniquePtr<T> unique_allocate(size_t nbytes) {
+  MutableUniquePtr<T> unique_allocate(int64_t nbytes) {
     /* allocate the nbytes, return unique_ptr */
     void* raw_ptr = allocate(nbytes);
     return MutableUniquePtr<T>(static_cast<T*>(raw_ptr),
@@ -90,10 +90,10 @@ class Allocator {
   virtual ~Allocator() {}
 
  protected:
-  virtual void* do_allocate(size_t size) = 0;
+  virtual void* do_allocate(int64_t size) = 0;
   virtual void do_deallocate(void* ptr) = 0;
 
-  void* allocate(size_t size) {
+  void* allocate(int64_t size) {
     auto iter = cache_.find(size);
     void* res;
     if (iter != cache_.end()) {
@@ -107,26 +107,26 @@ class Allocator {
     allocate_memory_size_ += size;
     return res;
   }
-  void deallocate(void* ptr, size_t size) {
+  void deallocate(void* ptr, int64_t size) {
     deallocate_memory_size_ += size;
     cache_.emplace(size,
                    std::unique_ptr<void, std::function<void(void*)>>(
                        ptr, [this](void* ptr) { this->do_deallocate(ptr); }));
   }
 
-  size_t allocate_memory_size_ = 0;
-  size_t deallocate_memory_size_ = 0;
+  int64_t allocate_memory_size_ = 0;
+  int64_t deallocate_memory_size_ = 0;
 
   // virtual void free_deletor(void* ptr) = 0;
   /* cache_ saves all of the pointers that have been deallocated.
      So we can reuse it instead of malloc again */
-  std::multimap<size_t, std::unique_ptr<void, std::function<void(void*)>>>
+  std::multimap<int64_t, std::unique_ptr<void, std::function<void(void*)>>>
       cache_;
 };
 
 class CPUAllocator : public Allocator {
  public:
-  void* do_allocate(size_t size) override { return std::malloc(size); }
+  void* do_allocate(int64_t size) override { return std::malloc(size); }
 
   void do_deallocate(void* ptr) override { std::free(ptr); }
 
@@ -141,7 +141,7 @@ class CPUAllocator : public Allocator {
 #ifdef USE_CUDA
 class CUDAAllocator : public Allocator {
  public:
-  void* do_allocate(size_t size) override {
+  void* do_allocate(int64_t size) override {
     void* ptr;
     cudaMalloc(&ptr, size);
     return ptr;

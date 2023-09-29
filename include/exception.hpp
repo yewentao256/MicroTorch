@@ -2,6 +2,7 @@
 #include <exception>
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 
 namespace microtorch {
 
@@ -25,9 +26,7 @@ void printTemplate(std::ostringstream& oss, const T& value,
           << __LINE__ << "\n";                                          \
       oss << "Additional Information: ";                                \
       printTemplate(oss, __VA_ARGS__);                                  \
-      std::cerr << oss.str();                                           \
-      std::cout << std::endl;                                           \
-      std::abort();                                                     \
+      throw std::runtime_error(oss.str());                              \
     }                                                                   \
   } while (false)
 

@@ -5,10 +5,10 @@
 
 namespace microtorch {
 
-inline constexpr size_t ThreadsPerBlock = 256;
-inline constexpr size_t MaxBlocksPerGrid = 1024;
+inline constexpr int64_t ThreadsPerBlock = 256;
+inline constexpr int64_t MaxBlocksPerGrid = 1024;
 
-inline size_t get_blocks_per_grid(size_t numel) {
+inline int64_t get_blocks_per_grid(int64_t numel) {
   return std::min(MaxBlocksPerGrid,
                   (numel + ThreadsPerBlock - 1) / ThreadsPerBlock);
 }

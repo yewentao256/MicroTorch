@@ -7,9 +7,9 @@
 #include <numeric>
 #include <random>
 #include <sstream>
-#include <vector>
 
 #include "storage.hpp"
+#include "array.hpp"
 
 namespace microtorch {
 
@@ -18,10 +18,9 @@ struct Tensor;
 
 struct TensorImpl {
  private:
-  size_t offset_ = 0;
-  std::vector<size_t> shape_;
-  std::vector<size_t> stride_;
-  size_t numel_;
+  int64_t offset_ = 0;
+  ArrayRef shape_;
+  ArrayRef stride_;
   Storage storage_;
 
   bool requires_grad_;
@@ -31,31 +30,31 @@ struct TensorImpl {
   std::unique_ptr<Tensor> grad_ = nullptr;
 
   // constructors
-  explicit TensorImpl(std::vector<size_t>& shape, Device device,
+  explicit TensorImpl(const ArrayRef& shape, Device device,
                       bool requires_grad, const data_t* data = nullptr);
-  explicit TensorImpl(const Storage& storage, std::vector<size_t>& shape,
-                      std::vector<size_t> stride, Device device,
+  explicit TensorImpl(const Storage& storage, const ArrayRef& shape,
+                      const ArrayRef& stride, Device device,
                       bool requires_grad);
 
   ~TensorImpl() = default;
 
   // properties
-  size_t offset() { return offset_; }
-  size_t ndim() const { return shape_.size(); }
-  const std::vector<size_t>& stride() { return stride_; }
-  const std::vector<size_t>& shape() { return shape_; }
+  int64_t offset() const { return offset_; }
+  int64_t ndim() const { return shape_.size(); }
+  const ArrayRef& stride() { return stride_; }
+  const ArrayRef& shape() { return shape_; }
   data_t* data() { return storage_.data(); }
   Device device() const { return storage_.device(); }
-  size_t nbytes() const { return storage_.nbytes(); }
-  size_t numel() const { return numel_; }
+  int64_t nbytes() const { return storage_.nbytes(); }
+  int64_t numel() const { return shape_.numel(); }
   bool requires_grad() const { return requires_grad_; }
   void set_requires_grad(bool requires_grad) { requires_grad_ = requires_grad; }
-  std::shared_ptr<Edge> edge() { return edge_; }
+  std::shared_ptr<Edge> edge() const { return edge_; }
   void set_edge(std::shared_ptr<Edge> edge) { edge_ = edge; }
 
   // operator override
-  data_t& operator[](std::vector<size_t> idxs);
-  data_t operator[](std::vector<size_t> idxs) const;
+  data_t& operator[](const ArrayRef& idxs);
+  data_t operator[](const ArrayRef& idxs) const;
 
   bool is_contiguous() const;
 };
@@ -67,7 +66,7 @@ struct Tensor {
  public:
   // constructors
   Tensor() {}
-  explicit Tensor(std::vector<size_t> shape, Device device = Device("cpu"),
+  explicit Tensor(const ArrayRef& shape, Device device = Device("cpu"),
                   bool requires_grad = false);
   explicit Tensor(std::vector<data_t> data, Device device = Device("cpu"),
                   bool requires_grad = false);
@@ -76,31 +75,30 @@ struct Tensor {
   Tensor(Tensor&& other) noexcept : impl_(std::move(other.impl_)) {}
 
   // operator override
-  data_t& operator[](size_t idx) { return impl_->operator[]({idx}); }
-  data_t& operator[](std::vector<size_t> idxs) {
+  data_t& operator[](int64_t idx) { return impl_->operator[]({idx}); }
+  data_t& operator[](const ArrayRef& idxs) {
     return impl_->operator[](idxs);
   }
-  data_t operator[](size_t idx) const {
-    // const to call TensorImpl::operator[](std::vector<size_t> idxs) const
+  data_t operator[](int64_t idx) const {
     return static_cast<const TensorImpl*>(impl_.get())->operator[]({idx});
   }
 
-  data_t operator[](std::vector<size_t> idxs) const {
+  data_t operator[](const ArrayRef& idxs) const {
     return static_cast<const TensorImpl*>(impl_.get())->operator[](idxs);
   }
 
   // properties
-  size_t offset() const { return impl_->offset(); }
-  size_t ndim() const { return impl_->ndim(); }
-  const std::vector<size_t>& stride() const { return impl_->stride(); }
+  int64_t offset() const { return impl_->offset(); }
+  int64_t ndim() const { return impl_->ndim(); }
+  const ArrayRef& stride() const { return impl_->stride(); }
   data_t* data_ptr() const { return impl_->data(); };
   const std::shared_ptr<TensorImpl>& impl() const { return impl_; }
-  size_t numel() const { return impl_->numel(); }
+  int64_t numel() const { return impl_->numel(); }
   bool defined() const { return impl_ && this->numel() > 0; }
 
   bool is_contiguous() const { return impl_->is_contiguous(); }
 
-  const std::vector<size_t>& shape() const{ return impl_->shape(); }
+  const ArrayRef& shape() const{ return impl_->shape(); }
 
   Tensor grad() {
     if (impl_->grad_) {
@@ -128,7 +126,7 @@ struct Tensor {
   Tensor& operator=(const Tensor& other);
   Tensor operator==(const Tensor& other);
 
-  std::shared_ptr<Edge> edge() { return impl_->edge(); };
+  std::shared_ptr<Edge> edge() const { return impl_->edge(); };
   void set_edge(std::shared_ptr<Edge> edge) { impl_->set_edge(edge); };
 
   Tensor cuda();

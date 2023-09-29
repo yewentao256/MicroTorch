@@ -14,7 +14,7 @@ using data_t = float;
 
 class Storage {
  public:
-  explicit Storage(size_t nbytes, Device device, const data_t* data = nullptr);
+  explicit Storage(int64_t nbytes, Device device, const data_t* data = nullptr);
   // Storage(const Storage& other, Device device);
 
   explicit Storage(const Storage& other) = default;
@@ -22,14 +22,14 @@ class Storage {
   ~Storage() = default;
   Storage& operator=(const Storage& other) = delete;
 
-  data_t operator[](size_t idx) const;
-  data_t& operator[](size_t idx);
+  data_t operator[](int64_t idx) const;
+  data_t& operator[](int64_t idx);
   data_t* data() { return data_ptr_.get(); }
   const Device& device() const { return device_; }
-  size_t nbytes() const { return nbytes_; }
+  int64_t nbytes() const { return nbytes_; }
 
  private:
-  size_t nbytes_;
+  int64_t nbytes_;
   Device device_;
   // Note: it seems that shared_ptr is used for controlling cuda memory here
   // But it actually has a deleter for cuda, see allocator.hpp for details.

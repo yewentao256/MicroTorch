@@ -9,7 +9,7 @@
 
 namespace microtorch {
 
-std::string print_with_size(Tensor t, size_t print_size = 20,
+std::string print_with_size(Tensor t, int64_t print_size = 20,
                  const std::string& name = "name");
 std::ostream& operator<<(std::ostream& stream, Tensor t);
 

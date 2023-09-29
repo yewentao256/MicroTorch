@@ -24,16 +24,16 @@ inline void fill_scalar(Tensor& self, const data_t value) {
   DISPATCH_OP(fill_impl, self.device(), self, value);
 }
 
-inline Tensor rand(std::vector<size_t> size, const std::string& device,
+inline Tensor rand(ArrayRef size, const std::string& device,
                    bool requires_grad = false) {
   Tensor t(size, device, requires_grad);
   DISPATCH_OP(rand_impl, t.device(), t);
   return t;
 }
 
-Tensor zeros(std::vector<size_t> size, const std::string& device,
+Tensor zeros(ArrayRef size, const std::string& device,
              bool requires_grad = false);
-Tensor ones(std::vector<size_t> size, const std::string& device,
+Tensor ones(ArrayRef size, const std::string& device,
             bool requires_grad = false);
 
 template <typename Device>

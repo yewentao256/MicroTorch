@@ -6,53 +6,48 @@
 
 namespace microtorch {
 
-TensorImpl::TensorImpl(std::vector<size_t>& shape, Device device,
-                       bool requires_grad, const data_t* data)
+TensorImpl::TensorImpl(const ArrayRef& shape, Device device, bool requires_grad,
+                       const data_t* data)
     : shape_(shape),
       stride_(shape_.size()),
-      numel_(std::accumulate(shape.begin(), shape.end(), 1,
-                             std::multiplies<unsigned long>())),
-      storage_(Storage(numel_ * sizeof(data_t), device, data)),
+      storage_(Storage(shape_.numel() * sizeof(data_t), device, data)),
       requires_grad_(requires_grad) {
-  size_t stride = 1;
+  int64_t stride = 1;
   for (int i = ndim() - 1; i >= 0; i--) {
     stride_[i] = stride;
     stride *= shape_[i];
   }
 }
 
-TensorImpl::TensorImpl(const Storage& storage, std::vector<size_t>& shape,
-                       std::vector<size_t> stride, Device device,
-                       bool requires_grad)
+TensorImpl::TensorImpl(const Storage& storage, const ArrayRef& shape, const ArrayRef& stride,
+                       Device device, bool requires_grad)
     : shape_(shape),
       stride_(stride),
-      numel_(std::accumulate(shape.begin(), shape.end(), 1,
-                             std::multiplies<unsigned long>())),
       storage_(storage),
       requires_grad_(requires_grad) {}
 
-data_t& TensorImpl::operator[](std::vector<size_t> idxs) {
+data_t& TensorImpl::operator[](const ArrayRef& idxs) {
   // this is for updating tensor value
   TORCH_CHECK(ndim() == idxs.size(), "idxs size should equal to tensor's ndim");
-  size_t offset = offset_;
-  for (size_t i = 0; i < ndim(); i++) {
+  int64_t offset = offset_;
+  for (int64_t i = 0; i < ndim(); i++) {
     offset += idxs[i] * stride_[i];
   }
   return storage_[offset];
 }
 
-data_t TensorImpl::operator[](std::vector<size_t> idxs) const {
+data_t TensorImpl::operator[](const ArrayRef& idxs) const {
   // this is for getting value
   TORCH_CHECK(ndim() == idxs.size(), "idxs size should equal to tensor's ndim");
-  size_t offset = offset_;
-  for (size_t i = 0; i < ndim(); i++) {
+  int64_t offset = offset_;
+  for (int64_t i = 0; i < ndim(); i++) {
     offset += idxs[i] * stride_[i];
   }
   return storage_[offset];
 }
 
 bool TensorImpl::is_contiguous() const {
-  size_t stride = 1;
+  int64_t stride = 1;
   for (int i = ndim() - 1; i >= 0; i--) {
     if (stride_[i] != stride) {
       return false;
@@ -62,7 +57,7 @@ bool TensorImpl::is_contiguous() const {
   return true;
 }
 
-Tensor::Tensor(std::vector<size_t> shape, Device device, bool requires_grad) {
+Tensor::Tensor(const ArrayRef& shape, Device device, bool requires_grad) {
   impl_ = std::make_shared<TensorImpl>(shape, Device(device), requires_grad);
   if (requires_grad) {
     impl_->set_edge(
@@ -71,7 +66,7 @@ Tensor::Tensor(std::vector<size_t> shape, Device device, bool requires_grad) {
 }
 
 Tensor::Tensor(std::vector<data_t> data, Device device, bool requires_grad) {
-  std::vector<size_t> shape = {data.size()};
+  ArrayRef shape = {static_cast<int64_t>(data.size())};
   impl_ = std::make_shared<TensorImpl>(shape, Device(device), requires_grad,
                                        data.data());
   if (requires_grad) {

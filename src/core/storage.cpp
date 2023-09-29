@@ -4,7 +4,7 @@
 
 namespace microtorch {
 
-Storage::Storage(size_t nbytes, Device device, const data_t* data)
+Storage::Storage(int64_t nbytes, Device device, const data_t* data)
     : nbytes_(nbytes),
       device_(device),
       data_ptr_(
@@ -23,7 +23,7 @@ Storage::Storage(size_t nbytes, Device device, const data_t* data)
   }
 }
 
-data_t Storage::operator[](size_t idx) const {
+data_t Storage::operator[](int64_t idx) const {
 #ifdef USE_CUDA
   if (device_.is_cuda()) {
     data_t value;
@@ -37,7 +37,7 @@ data_t Storage::operator[](size_t idx) const {
 #endif
 }
 
-data_t& Storage::operator[](size_t idx) {
+data_t& Storage::operator[](int64_t idx) {
 #ifdef USE_CUDA
   TORCH_CHECK(device_.is_cpu(),
               "Non-const indexing into GPU storage is not supported.");
