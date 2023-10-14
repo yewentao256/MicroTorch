@@ -8,8 +8,8 @@
 #include <random>
 #include <sstream>
 
-#include "storage.hpp"
 #include "array.hpp"
+#include "storage.hpp"
 
 namespace microtorch {
 
@@ -30,8 +30,8 @@ struct TensorImpl {
   std::unique_ptr<Tensor> grad_ = nullptr;
 
   // constructors
-  explicit TensorImpl(const ArrayRef& shape, Device device,
-                      bool requires_grad, const data_t* data = nullptr);
+  explicit TensorImpl(const ArrayRef& shape, Device device, bool requires_grad,
+                      const data_t* data = nullptr);
   explicit TensorImpl(const Storage& storage, const ArrayRef& shape,
                       const ArrayRef& stride, Device device,
                       bool requires_grad);
@@ -57,6 +57,7 @@ struct TensorImpl {
   data_t operator[](const ArrayRef& idxs) const;
 
   bool is_contiguous() const;
+  data_t item() const;
 };
 
 struct Tensor {
@@ -76,9 +77,7 @@ struct Tensor {
 
   // operator override
   data_t& operator[](int64_t idx) { return impl_->operator[]({idx}); }
-  data_t& operator[](const ArrayRef& idxs) {
-    return impl_->operator[](idxs);
-  }
+  data_t& operator[](const ArrayRef& idxs) { return impl_->operator[](idxs); }
   data_t operator[](int64_t idx) const {
     return static_cast<const TensorImpl*>(impl_.get())->operator[]({idx});
   }
@@ -98,7 +97,7 @@ struct Tensor {
 
   bool is_contiguous() const { return impl_->is_contiguous(); }
 
-  const ArrayRef& shape() const{ return impl_->shape(); }
+  const ArrayRef& shape() const { return impl_->shape(); }
 
   Tensor grad() {
     if (impl_->grad_) {
@@ -106,13 +105,15 @@ struct Tensor {
     }
     return Tensor();
   }
-  void set_grad(Tensor grad) { impl_->grad_ = std::make_unique<Tensor>(grad);  }
+  void set_grad(Tensor grad) { impl_->grad_ = std::make_unique<Tensor>(grad); }
   bool requires_grad() const { return impl_->requires_grad(); }
   void set_requires_grad(bool requires_grad) {
     impl_->set_requires_grad(requires_grad);
   }
   Tensor& zero_();
   Tensor& fill_(data_t value);
+  Tensor square();
+  bool equal(const Tensor other);
 
   // overwrite ops
   Tensor operator+(const Tensor& other);
@@ -120,9 +121,11 @@ struct Tensor {
   Tensor operator-(const Tensor& other);
   Tensor& operator-=(const Tensor& other);
   Tensor operator*(const Tensor& other);
-  Tensor operator*(const data_t& other);
+  Tensor operator*(const data_t other);
   Tensor& operator*=(const Tensor& other);
-  Tensor& operator*=(const data_t& other);
+  Tensor& operator*=(const data_t other);
+  Tensor operator/(const Tensor& other);
+  Tensor& operator/=(const Tensor& other);
   Tensor& operator=(const Tensor& other);
   Tensor operator==(const Tensor& other);
 
@@ -138,6 +141,7 @@ struct Tensor {
   void backward();
 
   Device device() const { return impl_->device(); };
+  data_t item() const { return impl_->item(); }
 };
 
 }  // namespace microtorch

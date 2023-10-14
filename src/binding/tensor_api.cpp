@@ -12,9 +12,10 @@ void export_tensor_class(py::module &m) {
            py::arg("data"), py::arg("device") = "cpu",
            py::arg("requires_grad") = false)
       .def("str", [](Tensor &t) { return t.str(); })
+
+      // magic methods
       .def(
-          "__getitem__",
-          [](const Tensor &t, ArrayRef idxs) { return t[idxs]; },
+          "__getitem__", [](const Tensor &t, ArrayRef idxs) { return t[idxs]; },
           py::is_operator())
       .def(
           "__setitem__",
@@ -27,6 +28,12 @@ void export_tensor_class(py::module &m) {
           py::is_operator())
       .def(
           "__mul__", [](Tensor &t1, Tensor &t2) { return t1 * t2; },
+          py::is_operator())
+      .def(
+          "__mul__", [](Tensor &t1, const float other) { return t1 * other; },
+          py::is_operator())
+      .def(
+          "__truediv__", [](Tensor &t1, Tensor &t2) { return t1 / t2; },
           py::is_operator())
       .def(
           "__sub__", [](Tensor &t1, Tensor &t2) { return t1 - t2; },
@@ -46,10 +53,18 @@ void export_tensor_class(py::module &m) {
              self *= other;
              return self;
            })
-      .def("__eq__",
-           [](Tensor &self, const Tensor &other) {
-             return self == other;
+      .def("__imul__",
+           [](Tensor &self, const float other) {
+             self *= other;
+             return self;
            })
+      .def("__itruediv__",
+           [](Tensor &self, const Tensor &other) {
+             self /= other;
+             return self;
+           })
+      .def("__eq__",
+           [](Tensor &self, const Tensor &other) { return self == other; })
 
       // properties
       .def_property(
@@ -73,7 +88,10 @@ void export_tensor_class(py::module &m) {
       .def("device", [](Tensor &t) { return t.device().str(); })
       .def("cuda", &Tensor::cuda)
       .def("is_cuda", &Tensor::is_cuda)
-      .def("cpu", &Tensor::cpu);
+      .def("cpu", &Tensor::cpu)
+      .def("square", &Tensor::square)
+      .def("equal", &Tensor::equal)
+      .def("defined", &Tensor::defined);
 }
 
 void export_tensor_function(py::module &m) {

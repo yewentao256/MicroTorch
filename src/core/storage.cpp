@@ -15,7 +15,7 @@ Storage::Storage(int64_t nbytes, Device device, const data_t* data)
     if (device == Device("cpu")) {
       std::memcpy(data_ptr_.get(), data, nbytes);
     } else {
-      cudaMemcpy(data_ptr_.get(), data, nbytes, cudaMemcpyDeviceToHost);
+      cudaMemcpy(data_ptr_.get(), data, nbytes, cudaMemcpyHostToDevice);
     }
 #else
     std::memcpy(data_ptr_.get(), data, nbytes);
@@ -44,8 +44,5 @@ data_t& Storage::operator[](int64_t idx) {
 #endif
   return data_ptr_.get()[idx];
 }
-
-// Storage::Storage(const Storage& other, Device device)
-//     : device_(device), data_ptr_(other.data_ptr_), nbytes_(other.nbytes()) {}
 
 }  // namespace microtorch

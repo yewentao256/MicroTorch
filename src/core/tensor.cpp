@@ -19,8 +19,9 @@ TensorImpl::TensorImpl(const ArrayRef& shape, Device device, bool requires_grad,
   }
 }
 
-TensorImpl::TensorImpl(const Storage& storage, const ArrayRef& shape, const ArrayRef& stride,
-                       Device device, bool requires_grad)
+TensorImpl::TensorImpl(const Storage& storage, const ArrayRef& shape,
+                       const ArrayRef& stride, Device device,
+                       bool requires_grad)
     : shape_(shape),
       stride_(stride),
       storage_(storage),
@@ -55,6 +56,12 @@ bool TensorImpl::is_contiguous() const {
     stride *= shape_[i];
   }
   return true;
+}
+
+data_t TensorImpl::item() const {
+  TORCH_CHECK(numel() == 1,
+              "item() can be called only on scalar (1-element) tensors.");
+  return storage_[0];
 }
 
 Tensor::Tensor(const ArrayRef& shape, Device device, bool requires_grad) {
@@ -101,7 +108,6 @@ Tensor Tensor::cpu() {
   return *this;
 }
 
-
 Tensor& Tensor::operator=(const Tensor& other) {
   if (&other == this) {
     return *this;  // handle self-assignment
@@ -114,21 +120,26 @@ Tensor Tensor::operator==(const Tensor& other) {
   TORCH_CHECK(other.device() == this->device(), "device should be the same");
   TORCH_CHECK(other.shape() == this->shape(), "shape should be the same");
   Tensor out = zeros(this->shape(), this->device());
-  equal_out(*this, other, out);
+  DISPATCH_OP(eq_impl, this->device(), *this, other, out);
   return out;
 }
 
 Tensor& Tensor::zero_() { return this->fill_(0); }
 
+Tensor Tensor::square() { return microtorch::square(*this); }
+
+bool Tensor::equal(const Tensor other) {
+  if (this->numel() != other.numel() || this->shape() != other.shape() ||
+      this->device() != other.device()) {
+    return false;
+  }
+  return this->numel() ==
+         static_cast<int64_t>(microtorch::sum(*this == other).item());
+}
+
 Tensor& Tensor::fill_(data_t value) {
   fill_scalar(*this, value);
   return *this;
-}
-
-Tensor Tensor::clone() const {
-  Tensor out = zeros(this->shape(), this->device(), this->requires_grad());
-  clone_out(*this, out);
-  return out;
 }
 
 std::string Tensor::str() const { return print_with_size(*this); }

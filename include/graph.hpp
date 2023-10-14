@@ -43,7 +43,6 @@ struct Edge {
 
   Edge(std::shared_ptr<Node> function_node, uint32_t input_nr) noexcept
       : function_node(std::move(function_node)), input_nr(input_nr) {}
-  const char* node_name();
 };
 
 struct Node {
