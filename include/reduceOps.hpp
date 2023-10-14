@@ -9,11 +9,8 @@
 namespace microtorch {
 
 template <typename Device>
-void sum_impl(Tensor& a, Tensor& out);
+void sum_impl(const Tensor& a, Tensor& out);
 
-inline Tensor sum(Tensor& a) {
-  Tensor out = zeros({1}, a.device());
-  OpNode("sum").ins({a}).outs({out}).apply();
-  return out;
-}
+Tensor sum(const Tensor& a);
+
 }  // namespace microtorch

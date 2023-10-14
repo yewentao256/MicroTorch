@@ -37,7 +37,6 @@ struct ArrayRef {
   std::vector<int64_t>& vec() { return data_; }
   const std::vector<int64_t>& vec() const { return data_; }
   int64_t numel() const {
-    if (data_.empty()) return 0;
     int64_t result = 1;
     for (auto data : data_) {
       result *= data;
@@ -45,6 +44,7 @@ struct ArrayRef {
     return result;
   }
   bool operator==(const ArrayRef& other) const { return data_ == other.data_; }
+  bool operator!=(const ArrayRef& other) const { return !(*this == other); }
 
   friend std::ostream& operator<<(std::ostream& os, const ArrayRef& arr) {
     os << "[";

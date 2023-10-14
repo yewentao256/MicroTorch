@@ -25,18 +25,23 @@ void sub_backward_impl(Tensor& grad_output, Tensor& grad_input_1,
 template <typename Device>
 void mul_impl(const Tensor& a, const Tensor& b, Tensor& out);
 template <typename Device>
-void mul_backward_impl(Tensor& grad_output, Tensor& grad_input_1,
-                       Tensor& grad_input_2, Tensor& a, Tensor& b);
+void mul_backward_impl(const Tensor& grad_output, Tensor& grad_input_1,
+                       Tensor& grad_input_2, const Tensor& a, const Tensor& b);
 
 template <typename Device>
-void equal_impl(const Tensor& a, const Tensor& b, Tensor& out, const float epsilon = 1e-6);
-template <>
-void equal_impl<Host>(const Tensor& a, const Tensor& b, Tensor& out, const float epsilon);
-template <>
-void equal_impl<Cuda>(const Tensor& a, const Tensor& b, Tensor& out, const float epsilon);
+void mul_scalar_impl(const Tensor& a, const float b, Tensor& out);
+template <typename Device>
+void mul_scalar_backward_impl(const Tensor& grad_output, Tensor& grad_input,
+                              const Tensor& a, const float b);
 
-// user interface
-inline void equal_out(const Tensor& a, const Tensor& b, Tensor& out) {
-  DISPATCH_OP(equal_impl, a.device(), a, b, out);
-}
+template <typename Device>
+void div_impl(const Tensor& a, const Tensor& b, Tensor& out);
+template <typename Device>
+void div_backward_impl(const Tensor& grad_output, Tensor& grad_input_1,
+                       Tensor& grad_input_2, const Tensor& a, const Tensor& b);
+
+template <typename Device>
+void eq_impl(const Tensor& a, const Tensor& b, Tensor& out,
+                const float epsilon = 1e-5);
+
 }  // namespace microtorch

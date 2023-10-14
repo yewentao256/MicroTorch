@@ -11,5 +11,4 @@ PYBIND11_MODULE(_microtorch, m) {
   export_cuda_function(m);
   export_graph_function(m);
 
-  microtorch::initialize_ops();
 }

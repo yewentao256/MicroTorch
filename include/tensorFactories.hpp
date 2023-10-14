@@ -41,8 +41,4 @@ void clone_impl(const Tensor& a, Tensor& out);
 template <typename Device>
 void clone_backward_impl(const Tensor& grad_output, Tensor& grad_input);
 
-inline void clone_out(const Tensor& a, Tensor& out) {
-  OpNode("clone").ins({a}).outs({out}).apply();
-}
-
 }  // namespace microtorch
