@@ -6,9 +6,8 @@
 namespace microtorch {
 
 __global__ void fill_kernel(int64_t n, float *self, float value) {
-  int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-  int64_t stride = blockDim.x * gridDim.x;
-  for (int64_t i = idx; i < n; i += stride) {
+  for (int64_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n;
+       i += blockDim.x * gridDim.x) {
     self[i] = value;
   }
 }
@@ -22,9 +21,8 @@ void fill_impl<Cuda>(Tensor &self, const data_t value) {
 }
 
 __global__ void clone_kernel(int64_t n, const float *a, float *out) {
-  int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-  int64_t stride = blockDim.x * gridDim.x;
-  for (int64_t i = idx; i < n; i += stride) {
+  for (int64_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n;
+       i += blockDim.x * gridDim.x) {
     out[i] = a[i];
   }
 }
@@ -41,9 +39,8 @@ void clone_impl<Cuda>(const Tensor &a, Tensor &out) {
 
 __global__ void clone_backward_kernel(int64_t n, const float *grad_output_ptr,
                                       float *grad_input_ptr) {
-  int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-  int64_t stride = blockDim.x * gridDim.x;
-  for (int64_t i = idx; i < n; i += stride) {
+  for (int64_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n;
+       i += blockDim.x * gridDim.x) {
     grad_input_ptr[i] = grad_output_ptr[i];
   }
 }
@@ -60,7 +57,6 @@ void clone_backward_impl<Cuda>(const Tensor &grad_output, Tensor &grad_input) {
 }
 
 __global__ void rand_kernel(float *data, int numel) {
-  int idx = threadIdx.x + blockIdx.x * blockDim.x;
   int64_t stride = blockDim.x * gridDim.x;
 
   // For each block, initialize it's own state
@@ -70,7 +66,7 @@ __global__ void rand_kernel(float *data, int numel) {
   }
   __syncthreads();
 
-  for (int i = idx; i < numel; i += stride) {
+  for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < numel; i += stride) {
     data[i] = curand_uniform(&state);
   }
 }
