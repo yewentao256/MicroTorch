@@ -40,15 +40,18 @@ class Tensor(_microtorch.Tensor):
             return Tensor(super().__add__(other))
         return Tensor(super().__add__(Tensor(other)))
 
-    def __mul__(self, other: Union[Tensor, int, float]) -> Tensor:
-        if isinstance(other, Tensor):
-            return Tensor(super().__mul__(other))
-        return Tensor(super().__mul__(Tensor(other)))
-
     def __sub__(self, other: Union[Tensor, int, float]) -> Tensor:
         if isinstance(other, Tensor):
             return Tensor(super().__sub__(other))
         return Tensor(super().__sub__(Tensor(other)))
+
+    def __mul__(self, other: Union[Tensor, int, float]) -> Tensor:
+        return Tensor(super().__mul__(other))
+
+    def __truediv__(self, other: Union[Tensor, int, float]) -> Tensor:
+        if isinstance(other, Tensor):
+            return Tensor(super().__truediv__(other))
+        return Tensor(super().__truediv__(Tensor(other)))
 
     def __iadd__(self, other: Union[Tensor, int, float]) -> Tensor:
         if isinstance(other, Tensor):
@@ -57,22 +60,28 @@ class Tensor(_microtorch.Tensor):
 
     def __isub__(self, other: Union[Tensor, int, float]) -> Tensor:
         if isinstance(other, Tensor):
-            Tensor(super().__isub__(other))
+            return Tensor(super().__isub__(other))
         return Tensor(super().__isub__(Tensor(other)))
 
     def __imul__(self, other: Union[Tensor, int, float]) -> Tensor:
-        if isinstance(other, Tensor):
-            return Tensor(super().__imul__(other))
-        return Tensor(super().__imul__(Tensor(other)))
+        return Tensor(super().__imul__(other))
 
-    def __rmul__(self, other: Union[Tensor, int, float]) -> Tensor:
-        return self * other
+    def __itruediv__(self, other: Union[Tensor, int, float]) -> Tensor:
+        if isinstance(other, Tensor):
+            return Tensor(super().__itruediv__(other))
+        return Tensor(super().__itruediv__(Tensor(other)))
 
     def __radd__(self, other: Union[Tensor, int, float]) -> Tensor:
         return self + other
 
     def __rsub__(self, other: Union[Tensor, int, float]) -> Tensor:
         return self - other
+
+    def __rmul__(self, other: Union[Tensor, int, float]) -> Tensor:
+        return self * other
+
+    def __rtruediv__(self, other: Union[Tensor, int, float]) -> Tensor:
+        return self / other
 
     def cpu(self) -> Tensor:
         return Tensor(super().cpu())
@@ -81,7 +90,8 @@ class Tensor(_microtorch.Tensor):
         return Tensor(super().cuda())
 
     def grad(self) -> Tensor:
-        return Tensor(super().grad())
+        g = Tensor(super().grad())
+        return g if g.defined() else None
 
     def clone(self) -> Tensor:
         return Tensor(super().clone())
@@ -90,6 +100,12 @@ class Tensor(_microtorch.Tensor):
         if isinstance(other, Tensor):
             return Tensor(super().__eq__(other))
         raise RuntimeError(f"unexpected compare type: {type(other)}")
+
+    def defined(self) -> bool:
+        return super().defined()
+
+    def square(self) -> Tensor:
+        return Tensor(super().square())
 
 
 def _wrap_scalar_to_list(obj: Union[list, int, float]) -> list:

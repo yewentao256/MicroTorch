@@ -29,14 +29,14 @@ def test_one_iter(device="cpu") -> None:
         loss.backward()
         optimizer.step()
 
-    assert sum(params[0] == Tensor([1.0, 0.6, -0.2]))[0] == 3
-    assert sum(params[0].grad() == Tensor([0.0, 4.0, 12.0]))[0] == 3
-    assert sum(params[1] == Tensor([0.8, 0.6, 0.4]))[0] == 3
-    assert sum(params[1].grad() == Tensor([2.0, 4.0, 6.0]))[0] == 3
-    assert sum(params[2] == Tensor([0.8, 0.2, -0.8]))[0] == 3
-    assert sum(params[2].grad() == Tensor([2.0, 8.0, 18.0]))[0] == 3
-    assert sum(params[3] == Tensor([0.8, 0.6, 0.4]))[0] == 3
-    assert sum(params[3].grad() == Tensor([2.0, 4.0, 6.0]))[0] == 3
+    assert params[0].equal(Tensor([1.0, 0.6, -0.2]))
+    assert params[0].grad().equal(Tensor([0.0, 4.0, 12.0]))
+    assert params[1].equal(Tensor([0.8, 0.6, 0.4]))
+    assert params[1].grad().equal(Tensor([2.0, 4.0, 6.0]))
+    assert params[2].equal(Tensor([0.8, 0.2, -0.8]))
+    assert params[2].grad().equal(Tensor([2.0, 8.0, 18.0]))
+    assert params[3].equal(Tensor([0.8, 0.6, 0.4]))
+    assert params[3].grad().equal(Tensor([2.0, 4.0, 6.0]))
 
 
 def test_three_iter_momentum_nesterov(device="cpu") -> None:
@@ -61,10 +61,11 @@ def test_three_iter_momentum_nesterov(device="cpu") -> None:
         loss = sum(square(prediction - target))
         loss.backward()
         optimizer.step()
-    assert sum(params[0] == Tensor([1.0, 0.23, -0.448]))[0] == 3
-    assert sum(params[0].grad() == Tensor([0.0, 0.0, -7.2]))[0] == 3
-    assert sum(params[1] == Tensor([1.0, 0.23, 0.276]))[0] == 3
-    assert sum(params[1].grad() == Tensor([0.0, 0.0, -3.6]))[0] == 3
+    assert params[0].equal(Tensor([1.0, 0.23, -0.448]))
+    assert params[0].grad().equal(Tensor([0.0, 0.0, -7.2]))
+    assert params[1].equal(Tensor([1.0, 0.23, 0.276]))
+    assert params[1].grad().equal(Tensor([0.0, 0.0, -3.6]))
+
 
 
 if __name__ == "__main__":

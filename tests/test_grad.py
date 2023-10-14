@@ -84,19 +84,17 @@ def test_autograd_3() -> None:
     assert z.grad()[0] == 17.0
 
 
-# TODO: fix me
-# def test_autograd_mode() -> None:
-#     x = Tensor([2.0], requires_grad=True)
-#     with AutoGradGuard(False):
-#         y = x * 2
-#         y.backward()
-#         print(x.grad())
-#         assert x.grad()[0] == 0
+def test_autograd_mode() -> None:
+    x = Tensor([2.0], requires_grad=True)
+    with AutoGradGuard(False):
+        y = x * 2
+        y.backward()
+        assert x.grad() is None
 
 
 if __name__ == "__main__":
     test_autograd()
     test_autograd_2()
     test_autograd_3()
-    # test_autograd_mode()
+    test_autograd_mode()
     print("successfully pass the test!")
