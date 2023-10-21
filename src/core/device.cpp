@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2022-2023 yewentao
+ * Licensed under the MIT License.
+ */
 #include "device.hpp"
 
 #include "exception.hpp"

@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2022-2023 yewentao
+ * Licensed under the MIT License.
+ */
 #pragma once
 
 #include <typeinfo>
@@ -77,19 +81,6 @@ struct Node {
 template <typename T>
 struct FunctionNode : public Node {
   FunctionNode() {}
-  /* Deprecated and will be removed */
-  static inline void infer_tensor(Context& ctx, std::vector<Tensor>& inputs) {
-    int64_t len_inputs = inputs.size();
-    Device device = inputs[0].device();
-    auto shape = inputs[0].shape();
-    for (int64_t i = 1; i < len_inputs; i++) {
-      TORCH_CHECK(inputs[i].device() == device,
-                  "all the tensors should be in the same device.");
-      TORCH_CHECK(inputs[i].shape() == shape,
-                  "size of the tensors should be the same");
-    }
-    ctx.device = device;
-  }
 
   template <typename... Args>
   static std::vector<Tensor> forward_and_build_graph(Args&&... args) {
@@ -123,37 +114,6 @@ struct FunctionNode : public Node {
       }
     }
     return outs;
-  }
-
-  /* Deprecated and will be removed */
-  static void forward_and_build_graph(std::vector<Tensor>& inputs,
-                                      std::vector<Tensor>& outs) {
-    // Check whether needs to build graph
-    bool any_requires_grad = false;
-    // Create node and set next edge
-    auto node = std::make_shared<FunctionNode<T>>();
-    infer_tensor(node->context, inputs);
-    if (GradModeController::is_enabled()) {
-      for (size_t i = 0; i < inputs.size(); i++) {
-        // Here we bind the edge of tensor before to the current node
-        if (inputs[i].requires_grad()) {
-          node->next_edges.push_back(inputs[i].edge());
-          any_requires_grad = true;
-        }
-      }
-    }
-
-    // forward
-    T::forward(node->context, inputs, outs);
-
-    if (any_requires_grad) {
-      node->num_input_of_backward = outs.size();
-      // Set the edges of the output to point to this node
-      for (size_t i = 0; i < outs.size(); i++) {
-        outs[i].set_requires_grad(true);
-        outs[i].set_edge(std::make_shared<Edge>(node, i));
-      }
-    }
   }
 
   std::vector<Tensor> backward(std::vector<Tensor>& grad_outputs) override {

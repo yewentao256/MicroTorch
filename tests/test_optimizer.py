@@ -1,3 +1,8 @@
+"""
+Copyright (c) 2022-2023 yewentao
+Licensed under the MIT License.
+"""
+
 from microtorch import Tensor, ones, SGDOptimizer, sum, square
 import microtorch
 
@@ -65,7 +70,6 @@ def test_three_iter_momentum_nesterov(device="cpu") -> None:
     assert params[0].grad().equal(Tensor([0.0, 0.0, -7.2]))
     assert params[1].equal(Tensor([1.0, 0.23, 0.276]))
     assert params[1].grad().equal(Tensor([0.0, 0.0, -3.6]))
-
 
 
 if __name__ == "__main__":

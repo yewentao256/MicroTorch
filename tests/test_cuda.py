@@ -1,3 +1,8 @@
+"""
+Copyright (c) 2022-2023 yewentao
+Licensed under the MIT License.
+"""
+
 import microtorch
 
 
@@ -9,7 +14,7 @@ def test_cuda() -> None:
     assert t.shape() == [10, 20]
 
     a = microtorch.ones(5).cuda()
-    b = microtorch.Tensor([1, 2, 3, 4, 5], device = 'cuda')
+    b = microtorch.Tensor([1, 2, 3, 4, 5], device='cuda')
 
     a.fill_(3)  # fill_
     assert a[3] == 3    # index_get

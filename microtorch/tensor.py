@@ -1,3 +1,7 @@
+"""
+Copyright (c) 2022-2023 yewentao
+Licensed under the MIT License.
+"""
 from __future__ import annotations
 from typing import Union
 import _microtorch

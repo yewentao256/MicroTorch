@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2022-2023 yewentao
+ * Licensed under the MIT License.
+ */
 #include "storage.hpp"
 
 #include "exception.hpp"
@@ -27,7 +31,8 @@ data_t Storage::operator[](int64_t idx) const {
 #ifdef USE_CUDA
   if (device_.is_cuda()) {
     data_t value;
-    cudaMemcpy(&value, data_ptr_.get() + idx, sizeof(data_t), cudaMemcpyDeviceToHost);
+    cudaMemcpy(&value, data_ptr_.get() + idx, sizeof(data_t),
+               cudaMemcpyDeviceToHost);
     return value;
   } else {
     return data_ptr_.get()[idx];

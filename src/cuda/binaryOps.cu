@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2022-2023 yewentao
+ * Licensed under the MIT License.
+ */
 #include "cuda.hpp"
 #include "ops.hpp"
 
@@ -202,7 +206,7 @@ __global__ void equal_kernel(int64_t n, float *a, float *b, float *out,
 
 template <>
 void eq_impl<Cuda>(const Tensor &a, const Tensor &b, Tensor &out,
-                      const float epsilon) {
+                   const float epsilon) {
   int64_t blocks_per_grid = get_blocks_per_grid(out.numel());
   equal_kernel<<<blocks_per_grid, ThreadsPerBlock>>>(
       out.numel(), a.data_ptr(), b.data_ptr(), out.data_ptr(), epsilon);
