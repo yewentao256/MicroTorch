@@ -1,5 +1,11 @@
+/**
+ * Copyright (c) 2022-2023 yewentao
+ * Licensed under the MIT License.
+ */
 #include "graph.hpp"
+
 #include <unordered_set>
+
 #include "ops.hpp"
 
 namespace microtorch {
@@ -20,9 +26,9 @@ void backward(Tensor loss) {
   // start traversal at the root node
   std::shared_ptr<Node> root_node = loss.edge()->function_node;
   node_stack.push_back(root_node);
-  visited_nodes.insert(root_node); // Mark root node as visited
+  visited_nodes.insert(root_node);  // Mark root node as visited
 
-  // Normally the gradient of the final loss is 1
+  // Start with the gradient of 1
   Tensor one = ones({1}, loss.device());
   grad_map[root_node] = {one};
 
@@ -56,15 +62,17 @@ void backward(Tensor loss) {
         }
         // Accumulate the gradient according to edge's identifier.
         // For example, the next node takes three inputs(namely `grad_outputs`)
-        // for backward, and there are three edges pointing to the node, 
+        // for backward, and there are three edges pointing to the node,
         // if the edge's identifier == 1, it means that this is the second edge,
         // and this next_gradient is the second input of the next node.
         grad_map[next_node][next_edge->input_nr] += next_gradient;
 
         // add next node to the stack only if it's not been added before
-        if (visited_nodes.find(next_edge->function_node) == visited_nodes.end()) {
+        if (visited_nodes.find(next_edge->function_node) ==
+            visited_nodes.end()) {
           node_stack.push_back(next_edge->function_node);
-          visited_nodes.insert(next_edge->function_node); // Mark node as visited
+          visited_nodes.insert(
+              next_edge->function_node);  // Mark node as visited
         }
       }
     }

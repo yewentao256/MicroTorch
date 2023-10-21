@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2022-2023 yewentao
+ * Licensed under the MIT License.
+ */
 #pragma once
 
 #include "context.hpp"
@@ -24,16 +28,16 @@ inline void fill_scalar(Tensor& self, const data_t value) {
   DISPATCH_OP(fill_impl, self.device(), self, value);
 }
 
-inline Tensor rand(ArrayRef size, const std::string& device,
+inline Tensor rand(IntArrayRef size, const std::string& device,
                    bool requires_grad = false) {
   Tensor t(size, device, requires_grad);
   DISPATCH_OP(rand_impl, t.device(), t);
   return t;
 }
 
-Tensor zeros(ArrayRef size, const std::string& device,
+Tensor zeros(IntArrayRef size, const std::string& device,
              bool requires_grad = false);
-Tensor ones(ArrayRef size, const std::string& device,
+Tensor ones(IntArrayRef size, const std::string& device,
             bool requires_grad = false);
 
 template <typename Device>

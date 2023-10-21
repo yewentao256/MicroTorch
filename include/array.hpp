@@ -1,22 +1,29 @@
+/**
+ * Copyright (c) 2022-2023 yewentao
+ * Licensed under the MIT License.
+ */
 #pragma once
 
 #include <vector>
 
 #include "exception.hpp"
+#include <type_traits>
 
 namespace microtorch {
+
+template <typename T>
 struct ArrayRef {
   ArrayRef() {}
   ArrayRef(const ArrayRef&) = default;
   ArrayRef(ArrayRef&&) = default;
   ArrayRef(int64_t size) : data_(size) {}
-  ArrayRef(const std::vector<int64_t>& data) : data_(data) {}
-  ArrayRef(std::vector<int64_t>&& data) : data_(std::move(data)) {}
-  ArrayRef(const std::initializer_list<int64_t>& data) : data_(data) {}
+  ArrayRef(const std::vector<T>& data) : data_(data) {}
+  ArrayRef(std::vector<T>&& data) : data_(std::move(data)) {}
+  ArrayRef(const std::initializer_list<T>& data) : data_(data) {}
   ArrayRef& operator=(const ArrayRef&) = default;
   ArrayRef& operator=(ArrayRef&&) = default;
 
-  int64_t& operator[](int64_t i) {
+  T& operator[](int64_t i) {
     i = i >= 0 ? i : i + this->size();
     TORCH_CHECK(i >= 0 && i < size(), "Index `", i,
                 "` is invalid. Index should be a non-negative integer "
@@ -24,7 +31,7 @@ struct ArrayRef {
                 this->size(), "`.");
     return data_[i];
   }
-  const int64_t& operator[](int64_t i) const {
+  const T& operator[](int64_t i) const {
     i = i >= 0 ? i : i + this->size();
     TORCH_CHECK(i >= 0 && i < size(), "Index `", i,
                 "` is invalid. Index should be a non-negative integer "
@@ -34,9 +41,11 @@ struct ArrayRef {
   }
   int64_t size() const { return data_.size(); }
   void resize(int64_t s) { data_.resize(s); }
-  std::vector<int64_t>& vec() { return data_; }
-  const std::vector<int64_t>& vec() const { return data_; }
+  std::vector<T>& vec() { return data_; }
+  const std::vector<T>& vec() const { return data_; }
   int64_t numel() const {
+    // check when compile
+    static_assert(std::is_integral_v<T>, "numel() is valid only for integral types.");
     int64_t result = 1;
     for (auto data : data_) {
       result *= data;
@@ -59,7 +68,9 @@ struct ArrayRef {
   }
 
  private:
-  std::vector<int64_t> data_;
+  std::vector<T> data_;
 };
+
+using IntArrayRef = ArrayRef<int64_t>;
 
 }  // namespace microtorch

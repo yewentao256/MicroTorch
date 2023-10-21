@@ -1,4 +1,7 @@
-// microtorch.cpp
+/**
+ * Copyright (c) 2022-2023 yewentao
+ * Licensed under the MIT License.
+ */
 #include "tensor.hpp"
 
 #include "graph.hpp"
@@ -6,7 +9,7 @@
 
 namespace microtorch {
 
-TensorImpl::TensorImpl(const ArrayRef& shape, Device device, bool requires_grad,
+TensorImpl::TensorImpl(const IntArrayRef& shape, Device device, bool requires_grad,
                        const data_t* data)
     : shape_(shape),
       stride_(shape_.size()),
@@ -19,15 +22,15 @@ TensorImpl::TensorImpl(const ArrayRef& shape, Device device, bool requires_grad,
   }
 }
 
-TensorImpl::TensorImpl(const Storage& storage, const ArrayRef& shape,
-                       const ArrayRef& stride, Device device,
+TensorImpl::TensorImpl(const Storage& storage, const IntArrayRef& shape,
+                       const IntArrayRef& stride, Device device,
                        bool requires_grad)
     : shape_(shape),
       stride_(stride),
       storage_(storage),
       requires_grad_(requires_grad) {}
 
-data_t& TensorImpl::operator[](const ArrayRef& idxs) {
+data_t& TensorImpl::operator[](const IntArrayRef& idxs) {
   // this is for updating tensor value
   TORCH_CHECK(ndim() == idxs.size(), "idxs size should equal to tensor's ndim");
   int64_t offset = offset_;
@@ -37,7 +40,7 @@ data_t& TensorImpl::operator[](const ArrayRef& idxs) {
   return storage_[offset];
 }
 
-data_t TensorImpl::operator[](const ArrayRef& idxs) const {
+data_t TensorImpl::operator[](const IntArrayRef& idxs) const {
   // this is for getting value
   TORCH_CHECK(ndim() == idxs.size(), "idxs size should equal to tensor's ndim");
   int64_t offset = offset_;
@@ -64,7 +67,7 @@ data_t TensorImpl::item() const {
   return storage_[0];
 }
 
-Tensor::Tensor(const ArrayRef& shape, Device device, bool requires_grad) {
+Tensor::Tensor(const IntArrayRef& shape, Device device, bool requires_grad) {
   impl_ = std::make_shared<TensorImpl>(shape, Device(device), requires_grad);
   if (requires_grad) {
     impl_->set_edge(
@@ -73,7 +76,7 @@ Tensor::Tensor(const ArrayRef& shape, Device device, bool requires_grad) {
 }
 
 Tensor::Tensor(std::vector<data_t> data, Device device, bool requires_grad) {
-  ArrayRef shape = {static_cast<int64_t>(data.size())};
+  IntArrayRef shape = {static_cast<int64_t>(data.size())};
   impl_ = std::make_shared<TensorImpl>(shape, Device(device), requires_grad,
                                        data.data());
   if (requires_grad) {

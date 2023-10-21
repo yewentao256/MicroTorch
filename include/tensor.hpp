@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2022-2023 yewentao
+ * Licensed under the MIT License.
+ */
 #pragma once
 
 #include <algorithm>
@@ -19,8 +23,8 @@ struct Tensor;
 struct TensorImpl {
  private:
   int64_t offset_ = 0;
-  ArrayRef shape_;
-  ArrayRef stride_;
+  IntArrayRef shape_;
+  IntArrayRef stride_;
   Storage storage_;
 
   bool requires_grad_;
@@ -30,10 +34,10 @@ struct TensorImpl {
   std::unique_ptr<Tensor> grad_ = nullptr;
 
   // constructors
-  explicit TensorImpl(const ArrayRef& shape, Device device, bool requires_grad,
+  explicit TensorImpl(const IntArrayRef& shape, Device device, bool requires_grad,
                       const data_t* data = nullptr);
-  explicit TensorImpl(const Storage& storage, const ArrayRef& shape,
-                      const ArrayRef& stride, Device device,
+  explicit TensorImpl(const Storage& storage, const IntArrayRef& shape,
+                      const IntArrayRef& stride, Device device,
                       bool requires_grad);
 
   ~TensorImpl() = default;
@@ -41,8 +45,8 @@ struct TensorImpl {
   // properties
   int64_t offset() const { return offset_; }
   int64_t ndim() const { return shape_.size(); }
-  const ArrayRef& stride() { return stride_; }
-  const ArrayRef& shape() { return shape_; }
+  const IntArrayRef& stride() { return stride_; }
+  const IntArrayRef& shape() { return shape_; }
   data_t* data() { return storage_.data(); }
   Device device() const { return storage_.device(); }
   int64_t nbytes() const { return storage_.nbytes(); }
@@ -53,8 +57,8 @@ struct TensorImpl {
   void set_edge(std::shared_ptr<Edge> edge) { edge_ = edge; }
 
   // operator override
-  data_t& operator[](const ArrayRef& idxs);
-  data_t operator[](const ArrayRef& idxs) const;
+  data_t& operator[](const IntArrayRef& idxs);
+  data_t operator[](const IntArrayRef& idxs) const;
 
   bool is_contiguous() const;
   data_t item() const;
@@ -67,7 +71,7 @@ struct Tensor {
  public:
   // constructors
   Tensor() {}
-  explicit Tensor(const ArrayRef& shape, Device device = Device("cpu"),
+  explicit Tensor(const IntArrayRef& shape, Device device = Device("cpu"),
                   bool requires_grad = false);
   explicit Tensor(std::vector<data_t> data, Device device = Device("cpu"),
                   bool requires_grad = false);
@@ -77,19 +81,19 @@ struct Tensor {
 
   // operator override
   data_t& operator[](int64_t idx) { return impl_->operator[]({idx}); }
-  data_t& operator[](const ArrayRef& idxs) { return impl_->operator[](idxs); }
+  data_t& operator[](const IntArrayRef& idxs) { return impl_->operator[](idxs); }
   data_t operator[](int64_t idx) const {
     return static_cast<const TensorImpl*>(impl_.get())->operator[]({idx});
   }
 
-  data_t operator[](const ArrayRef& idxs) const {
+  data_t operator[](const IntArrayRef& idxs) const {
     return static_cast<const TensorImpl*>(impl_.get())->operator[](idxs);
   }
 
   // properties
   int64_t offset() const { return impl_->offset(); }
   int64_t ndim() const { return impl_->ndim(); }
-  const ArrayRef& stride() const { return impl_->stride(); }
+  const IntArrayRef& stride() const { return impl_->stride(); }
   data_t* data_ptr() const { return impl_->data(); };
   const std::shared_ptr<TensorImpl>& impl() const { return impl_; }
   int64_t numel() const { return impl_->numel(); }
@@ -97,7 +101,7 @@ struct Tensor {
 
   bool is_contiguous() const { return impl_->is_contiguous(); }
 
-  const ArrayRef& shape() const { return impl_->shape(); }
+  const IntArrayRef& shape() const { return impl_->shape(); }
 
   Tensor grad() {
     if (impl_->grad_) {

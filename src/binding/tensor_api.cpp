@@ -1,4 +1,7 @@
-
+/**
+ * Copyright (c) 2022-2023 yewentao
+ * Licensed under the MIT License.
+ */
 #include "binding.hpp"
 #include "ops.hpp"
 
@@ -15,11 +18,11 @@ void export_tensor_class(py::module &m) {
 
       // magic methods
       .def(
-          "__getitem__", [](const Tensor &t, ArrayRef idxs) { return t[idxs]; },
+          "__getitem__", [](const Tensor &t, IntArrayRef idxs) { return t[idxs]; },
           py::is_operator())
       .def(
           "__setitem__",
-          [](Tensor &t, ArrayRef idxs, const data_t &value) {
+          [](Tensor &t, IntArrayRef idxs, const data_t &value) {
             t[idxs] = value;
           },
           py::is_operator())

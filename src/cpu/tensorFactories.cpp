@@ -1,24 +1,24 @@
-
+/**
+ * Copyright (c) 2022-2023 yewentao
+ * Licensed under the MIT License.
+ */
 #include "tensorFactories.hpp"
 
 #include "tensor.hpp"
 namespace microtorch {
 
 // Tensor Create operators
-Tensor zeros(ArrayRef size, const std::string& device,
-             bool requires_grad) {
+Tensor zeros(IntArrayRef size, const std::string& device, bool requires_grad) {
   Tensor t(size, device, requires_grad);
   fill_scalar(t, 0);
   return t;
 }
 
-Tensor ones(ArrayRef size, const std::string& device,
-            bool requires_grad) {
+Tensor ones(IntArrayRef size, const std::string& device, bool requires_grad) {
   Tensor t(size, device, requires_grad);
   fill_scalar(t, 1);
   return t;
 }
-
 
 template <>
 void fill_impl<Host>(Tensor& self, const data_t value) {
