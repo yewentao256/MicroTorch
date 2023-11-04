@@ -22,8 +22,8 @@ namespace microtorch {
 
 class Allocator {
  public:
-  // class to deallocate the `unique_ptr` with
   class mutable_delete_handler {
+    // class to deallocate
    public:
     mutable_delete_handler(int64_t size, Allocator* allocator)
         : size_(size), allocator_(allocator) {}
@@ -35,23 +35,7 @@ class Allocator {
   };
 
   template <typename T>
-  class immutable_delete_handler {
-   public:
-    immutable_delete_handler(Allocator* allocator) : allocator_(allocator) {}
-    void operator()(void* ptr) {
-      static_cast<T*>(ptr)->~T();
-      allocator_->deallocate(ptr, sizeof(T));
-    }
-
-   private:
-    Allocator* allocator_;
-  };
-
-  template <typename T>
   using MutableUniquePtr = std::unique_ptr<T, mutable_delete_handler>;
-
-  template <typename T>
-  using ImmutableUniquePtr = std::unique_ptr<T, immutable_delete_handler<T>>;
 
   template <typename T>
   std::shared_ptr<T> shared_allocate(int64_t nbytes) {
@@ -69,29 +53,20 @@ class Allocator {
                                mutable_delete_handler(nbytes, this));
   }
 
-  template <typename T, typename... Args>
-  std::shared_ptr<T> shared_construct(Args&&... args) {
-    /* construct the object, return shared_ptr */
-    void* raw_ptr = allocate(sizeof(T));
-    new (raw_ptr) T(std::forward<Args>(args)...);
-    return std::shared_ptr<T>(static_cast<T*>(raw_ptr),
-                              immutable_delete_handler<T>(this));
+  void clear() {
+    for (auto& pair : cache_) {
+      do_deallocate(pair.second.release());
+    }
+    cache_.clear();
+    allocate_memory_size_ = 0;
+    deallocate_memory_size_ = 0;
   }
 
-  template <typename T, typename... Args>
-  ImmutableUniquePtr<T> unique_construct(Args&&... args) {
-    /* construct the object, return unique_ptr */
-    void* raw_ptr = allocate(sizeof(T));
-    new (raw_ptr) T(std::forward<Args>(args)...);
-    return ImmutableUniquePtr<T>(static_cast<T*>(raw_ptr),
-                                 immutable_delete_handler<T>(this));
-  }
-
-  bool all_clear(void) {
+  bool check_all_clear(void) {
     return allocate_memory_size_ == deallocate_memory_size_;
   }
 
-  virtual ~Allocator() {}
+  virtual ~Allocator() = default;
 
  protected:
   virtual void* do_allocate(int64_t size) = 0;
@@ -106,7 +81,7 @@ class Allocator {
       cache_.erase(iter);
     } else {
       res = do_allocate(size);
-      TORCH_CHECK(res, "failed to allocate ", size, " memory.");
+      TORCH_CHECK(res, "failed to allocate `", size, "` of memory.");
     }
     allocate_memory_size_ += size;
     return res;
@@ -121,7 +96,6 @@ class Allocator {
   int64_t allocate_memory_size_ = 0;
   int64_t deallocate_memory_size_ = 0;
 
-  // virtual void free_deletor(void* ptr) = 0;
   /* cache_ saves all of the pointers that have been deallocated.
      So we can reuse it instead of malloc again */
   std::multimap<int64_t, std::unique_ptr<void, std::function<void(void*)>>>
@@ -131,15 +105,14 @@ class Allocator {
 class CPUAllocator : public Allocator {
  public:
   void* do_allocate(int64_t size) override { return std::malloc(size); }
-
   void do_deallocate(void* ptr) override { std::free(ptr); }
-
-  ~CPUAllocator() override {
-    for (auto& pair : cache_) {
-      do_deallocate(pair.second.release());
-    }
-    cache_.clear();
-  }
+  ~CPUAllocator() { 
+    // Note: we can't call clear() in the deconstructor of `Allocator` class,
+    // because the clear() calls the pure virtual function `do_deallocate`.
+    // The destructor of the derived class is called before the base class,
+    // so you will get a `Pure virtual function called!` error.
+    // Write it here is safe.
+    clear(); }
 };
 
 #ifdef USE_CUDA
@@ -152,13 +125,7 @@ class CUDAAllocator : public Allocator {
   }
 
   void do_deallocate(void* ptr) override { cudaFree(ptr); }
-
-  ~CUDAAllocator() override {
-    for (auto& pair : cache_) {
-      do_deallocate(pair.second.release());
-    }
-    cache_.clear();
-  }
+  ~CUDAAllocator() override { clear(); }
 };
 #endif
 
@@ -178,7 +145,16 @@ class AllocatorManager {
       return cuda_allocator_.get();
     }
 #endif
+    TORCH_CHECK(
+        d.is_cpu(),
+        "Only supports get a cpu allocator when not compiled with CUDA.");
     return cpu_allocator_.get();
+  }
+  void reset_allocators() {
+    cpu_allocator_->clear();
+#ifdef USE_CUDA
+    cuda_allocator_->clear();
+#endif
   }
 
  private:

@@ -33,7 +33,6 @@ struct Object {
 
   char x_;
   char y_;
-  Object() : x_('0'), y_('0') { constructor_call_counter++; }
   Object(char x, char y) : x_(x), y_(y) { constructor_call_counter++; }
   ~Object() { deconstructor_call_counter++; }
   friend std::ostream& operator<<(std::ostream& os, const Object& obj) {
@@ -44,61 +43,27 @@ struct Object {
 int Object::constructor_call_counter = 0;
 int Object::deconstructor_call_counter = 0;
 
-const char* test_cpu_allocator() {
-  auto allocator = g_allocator_manager.get_allocator(Device("cpu"));
+const char* test_allocator(const Device& device) {
+  g_allocator_manager.reset_allocators();
+  auto allocator = g_allocator_manager.get_allocator(device);
 
   void* ptr;
   {
-    // No constructor call here. Firstly Allocator will std::malloc memory
-    auto uptr = allocator->unique_allocate<Object>(sizeof(Object));
+    // No constructor is called. Firstly Allocator will malloc memory
+    auto uptr = allocator->shared_allocate<Object>(sizeof(Object));
     TORCH_CHECK(Object::constructor_call_counter == 0, "check 1");
     ptr = uptr.get();
   }
+  // Accordingly, no deconstructor is called
   TORCH_CHECK(Object::deconstructor_call_counter == 0, "check 1");
 
   {
-    // The strategy of Allocator. Here we reuse the pointer above
-    auto sptr = allocator->shared_allocate<Object>(sizeof(Object));
+    // The size-match strategy of Allocator. Here we reuse the pointer before
+    auto sptr = allocator->unique_allocate<Object>(sizeof(Object));
     TORCH_CHECK(ptr == static_cast<void*>(sptr.get()), "check 2");
   }
 
-  {
-    // Construct the object really
-    auto uptr = allocator->unique_construct<Object>();
-    TORCH_CHECK(Object::constructor_call_counter == 1, "check 3");
-    TORCH_CHECK(ptr == static_cast<void*>(uptr.get()), "check 3");
-  }
-  TORCH_CHECK(Object::deconstructor_call_counter == 1, "check 3");
-
-  {
-    auto sptr = allocator->shared_construct<Object>('6', '7');
-    TORCH_CHECK(Object::constructor_call_counter == 2, "check 4");
-    TORCH_CHECK(sptr->x_ == '6' && sptr->y_ == '7', "check 4");
-    TORCH_CHECK(ptr == static_cast<void*>(sptr.get()), "check 4");
-  }
-  TORCH_CHECK(Object::deconstructor_call_counter == 2, "check 4");
-
-  TORCH_CHECK(allocator->all_clear(), "check memory all clear fail");
-  return "passed!";
-}
-
-const char* test_cuda_allocator() {
-  auto allocator = g_allocator_manager.get_allocator(Device("cuda"));
-
-  void* ptr;
-  {
-    // No constructor call here.
-    auto uptr = allocator->unique_allocate<Object>(sizeof(Object));
-    ptr = uptr.get();
-  }
-
-  {
-    // The strategy of Allocator. Here we reuse the pointer above
-    auto sptr = allocator->shared_allocate<Object>(sizeof(Object));
-    TORCH_CHECK(ptr == static_cast<void*>(sptr.get()), "check 2");
-  }
-
-  TORCH_CHECK(allocator->all_clear(), "check memory all clear fail");
+  TORCH_CHECK(allocator->check_all_clear(), "check memory all clear fail");
   return "passed!";
 }
 
@@ -107,11 +72,11 @@ int unit_test() {
   std::cout << "test Device...  \033[32m" << test_device() << "\33[0m"
             << std::endl;
 
-  std::cout << "test Allocator[cpu]...  \033[32m" << test_cpu_allocator()
-            << "\33[0m" << std::endl;
+  std::cout << "test Allocator[cpu]...  \033[32m"
+            << test_allocator(Device("cpu")) << "\33[0m" << std::endl;
 #ifdef USE_CUDA
-  std::cout << "test Allocator[cuda]...  \033[32m" << test_cuda_allocator()
-            << "\33[0m" << std::endl;
+  std::cout << "test Allocator[cuda]...  \033[32m"
+            << test_allocator(Device("cuda")) << "\33[0m" << std::endl;
 #endif
 
   steady_clock::time_point end_tp = steady_clock::now();
