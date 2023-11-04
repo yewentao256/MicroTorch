@@ -18,7 +18,8 @@ void export_tensor_class(py::module &m) {
 
       // magic methods
       .def(
-          "__getitem__", [](const Tensor &t, IntArrayRef idxs) { return t[idxs]; },
+          "__getitem__",
+          [](const Tensor &t, IntArrayRef idxs) { return t[idxs]; },
           py::is_operator())
       .def(
           "__setitem__",
@@ -98,7 +99,8 @@ void export_tensor_class(py::module &m) {
 }
 
 void export_tensor_function(py::module &m) {
-  m.def("zeros", &microtorch::zeros)
+  m.def("empty", &microtorch::empty)
+      .def("zeros", &microtorch::zeros)
       .def("ones", &microtorch::ones)
       .def("rand", &microtorch::rand)
       .def("sum", &microtorch::sum, "get the sum result of a tensor")

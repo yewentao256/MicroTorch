@@ -42,10 +42,8 @@ inline void check_device_shape(const std::vector<Tensor>& inputs) {
   for (int64_t i = 1; i < len_inputs; i++) {
     TORCH_CHECK(inputs[i].device() == device,
                 "all the tensors should be in the same device.");
-    TORCH_CHECK(inputs[i].shape() == shape,
-                "size of the tensors should be the same");
-    // TODO: support broadcast through a general iterator
-    // And that iterator can also compute device and shape (broadcast).
+    // TORCH_CHECK(inputs[i].shape() == shape, "size of the tensors should be
+    // the same");
   }
 }
 

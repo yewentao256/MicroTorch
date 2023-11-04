@@ -118,6 +118,12 @@ def _wrap_scalar_to_list(obj: Union[list, int, float]) -> list:
     return obj
 
 
+def empty(size: Union[list, int, float], device: str = 'cpu',
+          requires_grad: bool = False) -> Tensor:
+    return Tensor(_microtorch.empty(
+        _wrap_scalar_to_list(size), device, requires_grad))
+
+
 def zeros(size: Union[list, int, float], device: str = 'cpu',
           requires_grad: bool = False) -> Tensor:
     return Tensor(_microtorch.zeros(
