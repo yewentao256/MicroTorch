@@ -16,5 +16,6 @@ template <typename Device>
 void sum_impl(const Tensor& a, Tensor& out);
 
 Tensor sum(const Tensor& a);
+// Tensor sum(const Tensor& a, int64_t dim = -1, bool keep_dim = false);
 
 }  // namespace microtorch

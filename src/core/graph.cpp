@@ -29,7 +29,7 @@ void backward(Tensor loss) {
   visited_nodes.insert(root_node);  // Mark root node as visited
 
   // Start with the gradient of 1
-  Tensor one = ones({1}, loss.device());
+  Tensor one = ones({1}, loss.device(), false);
   grad_map[root_node] = {one};
 
   while (!node_stack.empty()) {

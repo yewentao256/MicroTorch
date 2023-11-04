@@ -102,7 +102,8 @@ struct FunctionNode : public Node {
       }
     }
 
-    // forward
+    // CRTP（Curiously Recurring Template Pattern）
+    // Calling the implementation of subclass
     auto outs = T::forward(node->context, std::forward<Args>(args)...);
 
     if (any_requires_grad) {

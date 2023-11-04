@@ -4,10 +4,10 @@
  */
 #pragma once
 
+#include <type_traits>
 #include <vector>
 
 #include "exception.hpp"
-#include <type_traits>
 
 namespace microtorch {
 
@@ -20,6 +20,7 @@ struct ArrayRef {
   ArrayRef(const std::vector<T>& data) : data_(data) {}
   ArrayRef(std::vector<T>&& data) : data_(std::move(data)) {}
   ArrayRef(const std::initializer_list<T>& data) : data_(data) {}
+  ArrayRef(T* start, T* end) : data_(start, end) {}  // accepting for 2 pointers
   ArrayRef& operator=(const ArrayRef&) = default;
   ArrayRef& operator=(ArrayRef&&) = default;
 
@@ -40,12 +41,13 @@ struct ArrayRef {
     return data_[i];
   }
   int64_t size() const { return data_.size(); }
-  void resize(int64_t s) { data_.resize(s); }
+  void resize(int64_t s, const T& value = T()) { data_.resize(s, value); }
   std::vector<T>& vec() { return data_; }
   const std::vector<T>& vec() const { return data_; }
   int64_t numel() const {
     // check when compile
-    static_assert(std::is_integral_v<T>, "numel() is valid only for integral types.");
+    static_assert(std::is_integral_v<T>,
+                  "numel() is valid only for integral types.");
     int64_t result = 1;
     for (auto data : data_) {
       result *= data;
@@ -54,6 +56,28 @@ struct ArrayRef {
   }
   bool operator==(const ArrayRef& other) const { return data_ == other.data_; }
   bool operator!=(const ArrayRef& other) const { return !(*this == other); }
+
+  void push_back(const T& value) { data_.push_back(value); }
+  void push_back(T&& value) { data_.push_back(std::move(value)); }
+
+  auto begin() { return data_.begin(); }
+  auto begin() const { return data_.cbegin(); }
+  auto end() { return data_.end(); }
+  auto end() const { return data_.cend(); }
+  auto rbegin() { return data_.rbegin(); }
+  auto rbegin() const { return data_.crbegin(); }
+  auto rend() { return data_.rend(); }
+  auto rend() const { return data_.crend(); }
+
+  auto erase(typename std::vector<T>::const_iterator position) {
+    return data_.erase(position);
+  }
+  auto erase(typename std::vector<T>::const_iterator first,
+             typename std::vector<T>::const_iterator last) {
+    return data_.erase(first, last);
+  }
+
+  bool empty() const { return data_.empty(); }
 
   friend std::ostream& operator<<(std::ostream& os, const ArrayRef& arr) {
     os << "[";
@@ -72,5 +96,6 @@ struct ArrayRef {
 };
 
 using IntArrayRef = ArrayRef<int64_t>;
+using PtrArrayRef = ArrayRef<char*>;
 
 }  // namespace microtorch

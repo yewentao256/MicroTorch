@@ -96,7 +96,7 @@ def test_big_tensor() -> None:
 
 
 if __name__ == "__main__":
-    # test_tensor_one_dimension()
-    # test_tensor_two_dimension()
+    test_tensor_one_dimension()
+    test_tensor_two_dimension()
     test_big_tensor()
     print("successfully pass the test!")

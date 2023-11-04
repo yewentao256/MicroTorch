@@ -91,6 +91,7 @@ class CMakeBuild(build_ext):
         logging.info('######end of sub process running info######')
 
 
+# TODO: we may use scikit-build instead of CMakeExtension and CMakeBuild
 setup(
     name="microtorch",
     version=__version__,
