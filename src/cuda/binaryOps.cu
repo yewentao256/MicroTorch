@@ -139,8 +139,7 @@ void mul_scalar_impl<Cuda>(const Tensor &a, const float b, Tensor &out) {
 }
 
 __global__ void mul_scalar_backward_kernel(int64_t n, float *grad_output,
-                                           float *grad_input, float *a,
-                                           float b) {
+                                           float *grad_input, float b) {
   for (int64_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n;
        i += blockDim.x * gridDim.x) {
     grad_input[i] = b * grad_output[i];
@@ -149,12 +148,10 @@ __global__ void mul_scalar_backward_kernel(int64_t n, float *grad_output,
 
 template <>
 void mul_scalar_backward_impl<Cuda>(const Tensor &grad_output,
-                                    Tensor &grad_input, const Tensor &a,
-                                    const float b) {
+                                    Tensor &grad_input, const float b) {
   int64_t blocks_per_grid = get_blocks_per_grid(grad_output.numel());
   mul_scalar_backward_kernel<<<blocks_per_grid, ThreadsPerBlock>>>(
-      grad_output.numel(), grad_output.data_ptr(), grad_input.data_ptr(),
-      a.data_ptr(), b);
+      grad_output.numel(), grad_output.data_ptr(), grad_input.data_ptr(), b);
   CUDA_ERROR_CHECK();
 }
 

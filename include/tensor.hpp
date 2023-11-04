@@ -34,8 +34,8 @@ struct TensorImpl {
   std::unique_ptr<Tensor> grad_ = nullptr;
 
   // constructors
-  explicit TensorImpl(const IntArrayRef& shape, Device device, bool requires_grad,
-                      const data_t* data = nullptr);
+  explicit TensorImpl(const IntArrayRef& shape, Device device,
+                      bool requires_grad, const data_t* data = nullptr);
   explicit TensorImpl(const Storage& storage, const IntArrayRef& shape,
                       const IntArrayRef& stride, Device device,
                       bool requires_grad);
@@ -81,7 +81,9 @@ struct Tensor {
 
   // operator override
   data_t& operator[](int64_t idx) { return impl_->operator[]({idx}); }
-  data_t& operator[](const IntArrayRef& idxs) { return impl_->operator[](idxs); }
+  data_t& operator[](const IntArrayRef& idxs) {
+    return impl_->operator[](idxs);
+  }
   data_t operator[](int64_t idx) const {
     return static_cast<const TensorImpl*>(impl_.get())->operator[]({idx});
   }
@@ -117,7 +119,7 @@ struct Tensor {
   Tensor& zero_();
   Tensor& fill_(data_t value);
   Tensor square();
-  bool equal(const Tensor other);
+  bool equal(const Tensor other) const;
 
   // overwrite ops
   Tensor operator+(const Tensor& other);
@@ -131,7 +133,7 @@ struct Tensor {
   Tensor operator/(const Tensor& other);
   Tensor& operator/=(const Tensor& other);
   Tensor& operator=(const Tensor& other);
-  Tensor operator==(const Tensor& other);
+  Tensor operator==(const Tensor& other) const;
 
   std::shared_ptr<Edge> edge() const { return impl_->edge(); };
   void set_edge(std::shared_ptr<Edge> edge) { impl_->set_edge(edge); };
@@ -146,6 +148,7 @@ struct Tensor {
 
   Device device() const { return impl_->device(); };
   data_t item() const { return impl_->item(); }
+  int64_t element_size() const { return sizeof(data_t); }
 };
 
 }  // namespace microtorch

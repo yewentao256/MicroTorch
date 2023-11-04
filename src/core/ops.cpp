@@ -52,15 +52,19 @@ std::ostream& operator<<(std::ostream& stream, const Tensor t) {
 struct AddNode : public FunctionNode<AddNode> {
   static std::vector<Tensor> forward(Context& ctx, const Tensor& a,
                                      const Tensor& b) {
-    Tensor out = zeros(a.shape(), a.device(), a.requires_grad());
+    ctx.data.emplace("a", a);
+    ctx.data.emplace("b", b);
+    Tensor out;
     DISPATCH_OP(add_impl, a.device(), a, b, out);
     return {out};
   }
   static std::vector<Tensor> backward(Context& ctx,
                                       std::vector<Tensor>& grads) {
     auto& grad_output = grads[0];
-    Tensor grad_input_1 = zeros(grad_output.shape(), grad_output.device());
-    Tensor grad_input_2 = zeros(grad_output.shape(), grad_output.device());
+    Tensor grad_input_1 =
+        zeros(ctx.data.at("a").shape(), ctx.data.at("a").device());
+    Tensor grad_input_2 =
+        zeros(ctx.data.at("b").shape(), ctx.data.at("b").device());
     DISPATCH_OP(add_backward_impl, ctx.device, grad_output, grad_input_1,
                 grad_input_2);
     return {grad_input_1, grad_input_2};
@@ -151,7 +155,6 @@ Tensor& Tensor::operator*=(const Tensor& other) {
 struct MulScalarNode : public FunctionNode<MulScalarNode> {
   static std::vector<Tensor> forward(Context& ctx, const Tensor& a,
                                      const data_t b) {
-    ctx.data.emplace("a", a);
     ctx.data_scalar.emplace("b", b);
     Tensor out = zeros(a.shape(), a.device(), a.requires_grad());
     DISPATCH_OP(mul_scalar_impl, a.device(), a, b, out);
@@ -163,7 +166,7 @@ struct MulScalarNode : public FunctionNode<MulScalarNode> {
     auto& grad_output = grads[0];
     Tensor grad_input = zeros(grad_output.shape(), grad_output.device());
     DISPATCH_OP(mul_scalar_backward_impl, ctx.device, grad_output, grad_input,
-                ctx.data.at("a"), ctx.data_scalar.at("b"));
+                ctx.data_scalar.at("b"));
     return {grad_input};
   }
 };
@@ -238,6 +241,37 @@ struct SumNode : public FunctionNode<SumNode> {
 };
 
 Tensor sum(const Tensor& a) { return SumNode::forward_and_build_graph(a)[0]; }
+
+// TODO: realize sum dim, in order to support autograd broadcast
+// struct SumDimNode : public FunctionNode<SumDimNode> {
+//   static std::vector<Tensor> forward(Context& ctx, const Tensor& input,
+//                                      int64_t dim, bool keep_dim) {
+//     // save tensor data to context
+//     ctx.data.emplace("input", input);
+//     ctx.data_int.emplace("dim", dim);
+//     ctx.data_int.emplace("keep_dim", keep_dim);
+//     auto output_shape = compute_output_shape(input.shape(), dim, keep_dim);
+//     Tensor out = zeros({1}, input.device(), input.requires_grad());
+//     DISPATCH_OP(sum_impl, input.device(), input, out);
+//     return {out};
+//   }
+
+//   static std::vector<Tensor> backward(Context& ctx,
+//                                       std::vector<Tensor>& grads) {
+//     Tensor& input = ctx.data.at("input");
+//     const Tensor& grad_output = grads[0];
+//     TORCH_CHECK(grad_output.numel() == 1,
+//                 "grad_output numel should equal to 1");
+//     // y = a + b + c ..., y'(a) = 1 * grad[0], y'(b) = 1 * grad[1] ...
+//     Tensor grad_input = zeros(input.shape(), input.device());
+//     DISPATCH_OP(fill_impl, ctx.device, grad_input, grad_output[0]);
+//     return {grad_input};
+//   }
+// };
+
+// Tensor sum(const Tensor& a, int64_t dim = -1, bool keep_dim = false) {
+//   return SumDimNode::forward_and_build_graph(a, dim, keep_dim)[0];
+// }
 
 struct CloneNode : public FunctionNode<CloneNode> {
   static std::vector<Tensor> forward(Context& ctx, const Tensor& input) {

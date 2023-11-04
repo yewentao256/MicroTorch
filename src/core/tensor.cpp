@@ -119,7 +119,7 @@ Tensor& Tensor::operator=(const Tensor& other) {
   return *this;
 }
 
-Tensor Tensor::operator==(const Tensor& other) {
+Tensor Tensor::operator==(const Tensor& other) const{
   TORCH_CHECK(other.device() == this->device(), "device should be the same");
   TORCH_CHECK(other.shape() == this->shape(), "shape should be the same");
   Tensor out = zeros(this->shape(), this->device());
@@ -131,7 +131,7 @@ Tensor& Tensor::zero_() { return this->fill_(0); }
 
 Tensor Tensor::square() { return microtorch::square(*this); }
 
-bool Tensor::equal(const Tensor other) {
+bool Tensor::equal(const Tensor other) const {
   if (this->numel() != other.numel() || this->shape() != other.shape() ||
       this->device() != other.device()) {
     return false;

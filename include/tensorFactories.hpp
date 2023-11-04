@@ -28,17 +28,30 @@ inline void fill_scalar(Tensor& self, const data_t value) {
   DISPATCH_OP(fill_impl, self.device(), self, value);
 }
 
-inline Tensor rand(IntArrayRef size, const std::string& device,
-                   bool requires_grad = false) {
+inline Tensor empty(IntArrayRef size, const std::string& device,
+                    bool requires_grad = false) {
   Tensor t(size, device, requires_grad);
-  DISPATCH_OP(rand_impl, t.device(), t);
+  return t;
+}
+inline Tensor zeros(IntArrayRef size, const std::string& device,
+                    bool requires_grad = false) {
+  Tensor t = empty(size, device, requires_grad);
+  fill_scalar(t, 0);
+  return t;
+}
+inline Tensor ones(IntArrayRef size, const std::string& device,
+                   bool requires_grad) {
+  Tensor t = empty(size, device, requires_grad);
+  fill_scalar(t, 1);
   return t;
 }
 
-Tensor zeros(IntArrayRef size, const std::string& device,
-             bool requires_grad = false);
-Tensor ones(IntArrayRef size, const std::string& device,
-            bool requires_grad = false);
+inline Tensor rand(IntArrayRef size, const std::string& device,
+                   bool requires_grad = false) {
+  Tensor t = empty(size, device, requires_grad);
+  DISPATCH_OP(rand_impl, t.device(), t);
+  return t;
+}
 
 template <typename Device>
 void clone_impl(const Tensor& a, Tensor& out);

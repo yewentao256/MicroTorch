@@ -34,4 +34,15 @@ void printTemplate(std::ostringstream& oss, const T& value,
     }                                                                   \
   } while (false)
 
+#define TORCH_INTERNAL_ASSERT(cond)                                           \
+  do {                                                                        \
+    if (!(cond)) {                                                            \
+      std::ostringstream oss;                                                 \
+      oss << "INTERNAL ASSERT FAILED: " << #cond << " at " << __FILE__ << ":" \
+          << __LINE__ << "\n";                                                \
+      oss << "please report a bug to MicroTorch.";                            \
+      throw std::runtime_error(oss.str());                                    \
+    }                                                                         \
+  } while (false)
+
 }  // namespace microtorch

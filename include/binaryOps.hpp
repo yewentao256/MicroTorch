@@ -36,7 +36,7 @@ template <typename Device>
 void mul_scalar_impl(const Tensor& a, const float b, Tensor& out);
 template <typename Device>
 void mul_scalar_backward_impl(const Tensor& grad_output, Tensor& grad_input,
-                              const Tensor& a, const float b);
+                              const float b);
 
 template <typename Device>
 void div_impl(const Tensor& a, const Tensor& b, Tensor& out);
@@ -46,6 +46,6 @@ void div_backward_impl(const Tensor& grad_output, Tensor& grad_input_1,
 
 template <typename Device>
 void eq_impl(const Tensor& a, const Tensor& b, Tensor& out,
-                const float epsilon = 1e-5);
+             const float epsilon = 1e-5);
 
 }  // namespace microtorch
