@@ -76,6 +76,10 @@ struct ArrayRef {
              typename std::vector<T>::const_iterator last) {
     return data_.erase(first, last);
   }
+  auto insert(typename std::vector<T>::const_iterator position,
+              const T& value) {
+    return data_.insert(position, value);
+  }
 
   bool empty() const { return data_.empty(); }
 
