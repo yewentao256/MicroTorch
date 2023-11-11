@@ -12,7 +12,7 @@ import logging
 from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 # Convert distutils Windows platform specifiers to CMake -A arguments
 PLAT_TO_CMAKE = {

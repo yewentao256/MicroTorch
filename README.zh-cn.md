@@ -24,6 +24,7 @@
 - 学会使用**cmake**编译
 - 了解**pybind11**和导出c++源码到python的机制
 - 了解python **pip** 包管理机制
+- 理解tensor计算时广播过程
 
 ## 编译安装
 

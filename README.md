@@ -15,15 +15,16 @@ Gone are the intimidating complexities. MicroTorch offers a simplified, intuitiv
 With MicroTorch, you can:
 
 - Start from scratch and customize a complete Tensor class by yourself.
-- Understand the forward and backward computation processes of basic operators
-- Grasp the construction of computational graphs and the process of automatic differentiation
-- Understand the working mechanism of **SGD(momentum) optimizer**
-- Learn to **drive development with unit tests**
-- Understand memory management on different devices (CPU and CUDA)
-- Understand the registration of operators and the basic flow of dispatching to different devices
-- Get acquainted with **cmake** compilation
-- Be Familiar with **pybind11** and the mechanism to export C++ source to Python
-- Gain knowledge of the Python **pip** package management mechanism
+- Understand the forward and backward computation processes of basic operators.
+- Grasp the construction of computational graphs and the process of automatic differentiation.
+- Understand the working mechanism of **SGD(momentum) optimizer**.
+- Learn to **drive development with unit tests**.
+- Understand memory management on different devices (CPU and CUDA).
+- Understand the registration of operators and the basic flow of dispatching to different devices.
+- Get acquainted with **cmake** compilation.
+- Be Familiar with **pybind11** and the mechanism to export C++ source to Python.
+- Gain knowledge of the Python **pip** package management mechanism.
+- Understand the process of tensor broadcast.
 
 ## Compilation and Installation
 
