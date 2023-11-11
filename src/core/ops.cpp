@@ -242,36 +242,33 @@ struct SumNode : public FunctionNode<SumNode> {
 
 Tensor sum(const Tensor& a) { return SumNode::forward_and_build_graph(a)[0]; }
 
-// TODO: realize sum dim, in order to support autograd broadcast
-// struct SumDimNode : public FunctionNode<SumDimNode> {
-//   static std::vector<Tensor> forward(Context& ctx, const Tensor& input,
-//                                      int64_t dim, bool keep_dim) {
-//     // save tensor data to context
-//     ctx.data.emplace("input", input);
-//     ctx.data_int.emplace("dim", dim);
-//     ctx.data_int.emplace("keep_dim", keep_dim);
-//     auto output_shape = compute_output_shape(input.shape(), dim, keep_dim);
-//     Tensor out = zeros({1}, input.device(), input.requires_grad());
-//     DISPATCH_OP(sum_impl, input.device(), input, out);
-//     return {out};
-//   }
+struct SumDimNode : public FunctionNode<SumDimNode> {
+  static std::vector<Tensor> forward(Context& ctx, const Tensor& input,
+                                     IntArrayRef& dims, bool keep_dim) {
+    // save tensor data to context
+    ctx.data.emplace("input", input);
+    ctx.data_int.emplace("keep_dim", keep_dim);
+    Tensor out;
+    DISPATCH_OP(sum_dim_impl, input.device(), input, out, dims, keep_dim);
+    return {out};
+  }
 
-//   static std::vector<Tensor> backward(Context& ctx,
-//                                       std::vector<Tensor>& grads) {
-//     Tensor& input = ctx.data.at("input");
-//     const Tensor& grad_output = grads[0];
-//     TORCH_CHECK(grad_output.numel() == 1,
-//                 "grad_output numel should equal to 1");
-//     // y = a + b + c ..., y'(a) = 1 * grad[0], y'(b) = 1 * grad[1] ...
-//     Tensor grad_input = zeros(input.shape(), input.device());
-//     DISPATCH_OP(fill_impl, ctx.device, grad_input, grad_output[0]);
-//     return {grad_input};
-//   }
-// };
+  static std::vector<Tensor> backward(Context& ctx,
+                                      std::vector<Tensor>& grads) {
+    Tensor& input = ctx.data.at("input");
+    const Tensor& grad_output = grads[0];
+    TORCH_CHECK(grad_output.numel() == 1,
+                "grad_output numel should equal to 1");
+    // y = a + b + c ..., y'(a) = 1 * grad[0], y'(b) = 1 * grad[1] ...
+    Tensor grad_input = zeros(input.shape(), input.device());
+    DISPATCH_OP(fill_impl, ctx.device, grad_input, grad_output[0]);
+    return {grad_input};
+  }
+};
 
-// Tensor sum(const Tensor& a, int64_t dim = -1, bool keep_dim = false) {
-//   return SumDimNode::forward_and_build_graph(a, dim, keep_dim)[0];
-// }
+Tensor sum_dim(const Tensor& a, IntArrayRef dims, bool keep_dim) {
+  return SumDimNode::forward_and_build_graph(a, dims, keep_dim)[0];
+}
 
 struct CloneNode : public FunctionNode<CloneNode> {
   static std::vector<Tensor> forward(Context& ctx, const Tensor& input) {

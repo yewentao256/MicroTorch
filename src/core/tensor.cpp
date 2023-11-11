@@ -9,12 +9,13 @@
 
 namespace microtorch {
 
-TensorImpl::TensorImpl(const IntArrayRef& shape, Device device, bool requires_grad,
-                       const data_t* data)
+TensorImpl::TensorImpl(const IntArrayRef& shape, Device device,
+                       bool requires_grad, const data_t* data, int64_t offset)
     : shape_(shape),
       stride_(shape_.size()),
       storage_(Storage(shape_.numel() * sizeof(data_t), device, data)),
-      requires_grad_(requires_grad) {
+      requires_grad_(requires_grad),
+      offset_(offset) {
   int64_t stride = 1;
   for (int i = ndim() - 1; i >= 0; i--) {
     stride_[i] = stride;
@@ -24,11 +25,12 @@ TensorImpl::TensorImpl(const IntArrayRef& shape, Device device, bool requires_gr
 
 TensorImpl::TensorImpl(const Storage& storage, const IntArrayRef& shape,
                        const IntArrayRef& stride, Device device,
-                       bool requires_grad)
+                       bool requires_grad, int64_t offset)
     : shape_(shape),
       stride_(stride),
       storage_(storage),
-      requires_grad_(requires_grad) {}
+      requires_grad_(requires_grad),
+      offset_(offset) {}
 
 data_t& TensorImpl::operator[](const IntArrayRef& idxs) {
   // this is for updating tensor value
@@ -119,7 +121,7 @@ Tensor& Tensor::operator=(const Tensor& other) {
   return *this;
 }
 
-Tensor Tensor::operator==(const Tensor& other) const{
+Tensor Tensor::operator==(const Tensor& other) const {
   TORCH_CHECK(other.device() == this->device(), "device should be the same");
   TORCH_CHECK(other.shape() == this->shape(), "shape should be the same");
   Tensor out = zeros(this->shape(), this->device());
@@ -147,5 +149,13 @@ Tensor& Tensor::fill_(data_t value) {
 
 std::string Tensor::str() const { return print_with_size(*this); }
 void Tensor::backward() { ::microtorch::backward(*this); }
+
+Tensor Tensor::as_strided(const IntArrayRef& shape, const IntArrayRef& stride,
+                          int64_t offset) const {
+  auto new_impl = std::make_shared<TensorImpl>(impl_->storage(), shape, stride,
+                                               impl_->device(),
+                                               impl_->requires_grad(), offset);
+  return Tensor(new_impl);
+}
 
 }  // namespace microtorch

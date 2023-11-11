@@ -4,17 +4,21 @@
  */
 #pragma once
 
+#include <bit>
+#include <cstdint>
+#include <type_traits>
 #include <variant>
 #include <vector>
 
 #include "exception.hpp"
 #include "tensor.hpp"
+#include "array.hpp"
 
 namespace microtorch {
 
 /* An arg that supports all kinds of data type */
 struct ArgT {
-  using Variant = std::variant<data_t, Tensor>;
+  using Variant = std::variant<data_t, Tensor, IntArrayRef, bool>;
   Variant value;
 
   ArgT(Variant v) : value(v) {}
@@ -45,6 +49,16 @@ inline void check_device_shape(const std::vector<Tensor>& inputs) {
     // TORCH_CHECK(inputs[i].shape() == shape, "size of the tensors should be
     // the same");
   }
+}
+
+template <typename T>
+T CeilLog2(const T& x) {
+  TORCH_INTERNAL_ASSERT(std::is_integral_v<T>);
+  if (x <= 2) {
+    return 1;
+  }
+  // std::bit_width returns the highest bit location + 1
+  return static_cast<T>(std::bit_width(static_cast<uint64_t>(x) - 1));
 }
 
 }  // namespace microtorch

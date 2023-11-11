@@ -22,12 +22,12 @@ struct Tensor;
 
 struct TensorImpl {
  private:
-  int64_t offset_ = 0;
   IntArrayRef shape_;
   IntArrayRef stride_;
   Storage storage_;
 
   bool requires_grad_;
+  int64_t offset_ = 0;
   std::shared_ptr<Edge> edge_ = nullptr;
 
  public:
@@ -35,10 +35,11 @@ struct TensorImpl {
 
   // constructors
   explicit TensorImpl(const IntArrayRef& shape, Device device,
-                      bool requires_grad, const data_t* data = nullptr);
+                      bool requires_grad, const data_t* data = nullptr,
+                      int64_t offset = 0);
   explicit TensorImpl(const Storage& storage, const IntArrayRef& shape,
                       const IntArrayRef& stride, Device device,
-                      bool requires_grad);
+                      bool requires_grad, int64_t offset = 0);
 
   ~TensorImpl() = default;
 
@@ -62,6 +63,8 @@ struct TensorImpl {
 
   bool is_contiguous() const;
   data_t item() const;
+
+  const Storage& storage() const { return storage_; }
 };
 
 struct Tensor {
@@ -149,6 +152,10 @@ struct Tensor {
   Device device() const { return impl_->device(); };
   data_t item() const { return impl_->item(); }
   int64_t element_size() const { return sizeof(data_t); }
+
+  // Note: you need to be careful when you this function to view a tensor.
+  Tensor as_strided(const IntArrayRef& shape, const IntArrayRef& stride,
+                    int64_t offset = 0) const;
 };
 
 }  // namespace microtorch

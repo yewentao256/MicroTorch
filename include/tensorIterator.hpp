@@ -26,15 +26,13 @@ struct OperandInfo {
   OperandInfo& operator=(OperandInfo&&) noexcept = default;
   ~OperandInfo() = default;
 
-  // The data pointer. This may be different from tensor->data_ptr() if the
-  // iterator is split.
   void* data = nullptr;
 
   // Stride after broadcasting. The stride is in bytes, not number of elements.
   IntArrayRef stride_bytes;
-  bool is_output = false;
-  bool will_resize = false;
-  bool is_read_write = false;
+  bool is_out = false;
+  bool should_resize = false;
+  bool is_in_out = false;
 
   // The tensor operand. Note that the strides, data pointer, and
   // other attributes may differ due to dimension reordering and
@@ -82,32 +80,28 @@ struct TensorIterator {
                                 int64_t size0, int64_t size1)>;
 
   void build();
-  int ndim() const { return static_cast<int>(shape_.size()); }
+  int64_t ndim() const { return shape_.size(); }
   IntArrayRef shape() const { return shape_; }
   int64_t numel() const;
-  int ntensors() const { return static_cast<int>(operands_.size()); }
-  int noutputs() const { return num_outputs_; }
-  int ninputs() const { return ntensors() - noutputs(); }
+  int64_t ntensors() const { return operands_.size(); }
+  int64_t noutputs() const { return num_outputs_; }
+  int64_t ninputs() const { return ntensors() - noutputs(); }
 
   // Reducible to 1-dimensional and all operands are contiguous
   bool is_contiguous() const;
 
   // Accessors for each operand
-  IntArrayRef strides(int arg) const { return operands_[arg].stride_bytes; }
-  void* data_ptr(int arg) const { return operands_[arg].data; }
+  IntArrayRef strides(int64_t arg) const { return operands_[arg].stride_bytes; }
+  void* data_ptr(int64_t arg) const { return operands_[arg].data; }
 
-  int64_t element_size(int arg) const {
-    return static_cast<int64_t>(sizeof(data_t));
-  }
+  const Tensor& tensor(int64_t arg) const { return operands_[arg].tensor(); }
 
-  const Tensor& tensor(int arg) const { return operands_[arg].tensor(); }
-
-  const Tensor& output(int arg = 0) const {
+  const Tensor& output(int64_t arg = 0) const {
     TORCH_CHECK(arg < num_outputs_, "arg < num_outputs_");
     return tensor(arg);
   }
 
-  const Tensor& input(int arg = 0) const {
+  const Tensor& input(int64_t arg = 0) const {
     TORCH_CHECK(arg >= 0 && arg < ntensors() - num_outputs_,
                 "arg >= 0 && arg < ntensors() - num_outputs_");
     return tensor(num_outputs_ + arg);
@@ -153,7 +147,7 @@ struct TensorIterator {
                 std::is_convertible<loop1d_t,
                                     FuncRef<void(char**, const int64_t* strides,
                                                  int64_t size)>>::value,
-                int> = 0>
+                int64_t> = 0>
   void for_each(loop1d_t loop, int64_t grain_size = GRAIN_SIZE) {
     for_each(loop_2d_from_1d(loop), grain_size);
   }
@@ -165,24 +159,25 @@ struct TensorIterator {
                 std::is_convertible<loop1d_t,
                                     FuncRef<void(char**, const int64_t* strides,
                                                  int64_t size)>>::value,
-                int> = 0>
+                int64_t> = 0>
   void serial_for_each(loop1d_t loop, Range range) {
     serial_for_each(loop_2d_from_1d(loop), range);
   }
 
   void serial_for_each(loop2d_t loop, Range range) const;
+  void parallel_reduce(loop2d_t loop);
 
   // Create a strides array for a Tensor with shape of this iterator. The
   // parameter `element_size` specifies the size of Tensor's data type in
   // bytes (e.g. `4` for `float`)
-  IntArrayRef compatible_stride(int element_size) const;
+  IntArrayRef compatible_stride(int64_t element_size) const;
 
   // Inverts the re-ordering done by reorder_dimensions. This can only be
   // called *before* coalesce_dimensions() is called.
   IntArrayRef invert_perm(IntArrayRef input) const;
 
   // Helper functions for CPU iteration
-  IntArrayRef get_dim_strides(int dim) const;
+  IntArrayRef get_dim_strides(int64_t dim) const;
   IntArrayRef get_strides() const;
   IntArrayRef get_inner_strides() const { return get_dim_strides(0); }
   PtrArrayRef get_base_ptrs() const;
@@ -195,10 +190,8 @@ struct TensorIterator {
     if (ndim() == 0) {
       return true;
     }
-
-    int num_tensors = ntensors();
-    for (const auto i : irange(num_tensors)) {
-      if (strides(i)[0] != element_size(i)) {
+    for (const auto i : irange(ntensors())) {
+      if (strides(i)[0] != operands_[i].tensor().element_size()) {
         return false;
       }
     }
@@ -209,14 +202,24 @@ struct TensorIterator {
                               IntArrayRef strides, Device device,
                               bool requires_grad);
 
+  // set properties
+  TensorIterator& resize_outs(bool resize_outs) {
+    resize_outs_ = resize_outs;
+    return *this;
+  }
+  TensorIterator& is_reduction(bool is_reduction) {
+    is_reduction_ = is_reduction;
+    return *this;
+  }
+
  protected:
-  void mark_outputs();
-  void mark_resize_outputs();
-  void compute_shape();
+  void mark_outs();
+  void mark_resize_outs();
+  void compute_common_shape();
   void compute_strides();
   void reorder_dimensions();
   void permute_dimensions(IntArrayRef perm);
-  void compute_device();
+  void check_device();
   void allocate_or_resize_outputs();
   bool fast_set_up();
   FastSetupType compute_fast_setup_type();
@@ -243,13 +246,14 @@ struct TensorIterator {
   // The operands of the TensorIterator: both the inputs and outputs.  The
   // outputs MUST come first in the operands_ list.
   ArrayRef<OperandInfo> operands_;
-  int num_outputs_ = 0;
-  int num_inputs_ = 0;
+  int64_t num_outputs_ = 0;
+  int64_t num_inputs_ = 0;
 
   // Whether or not all operands have the same shape and are 1d+.
-  bool all_ops_same_shape_ = false;
+  bool all_ops_same_shape_ = true;
   Device common_device_ = Device("cpu");
   bool is_reduction_ = false;
+  bool resize_outs_ = true;
 };
 
 }  // namespace microtorch

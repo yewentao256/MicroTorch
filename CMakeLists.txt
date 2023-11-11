@@ -6,7 +6,7 @@ set(MICROTORCH _microtorch)
 project (${MICROTORCH} VERSION 1.0.0 LANGUAGES CXX)
 
 # C++ Standard
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # DEBUG mode or release mode, passing from setup.py

@@ -72,6 +72,14 @@ inline void serial_for_each(IntArrayRef shape, IntArrayRef strides,
 
 }  // namespace internal
 
+void TensorIterator::parallel_reduce(loop2d_t loop) {
+  TORCH_CHECK(ntensors() == 2,
+              "parallel_reduce only supports one input and one output");
+  serial_for_each(loop, {0, this->numel()});
+  // TODO: we may support parallel in the future
+  // parallel_dim_reduction(*this, loop);
+}
+
 void TensorIterator::reorder_dimensions() {
   // Sort the dimensions based on strides in ascending order with reduced dims
   // at the front. NOTE: that this inverts the order of C-contiguous tensors.
@@ -90,15 +98,14 @@ void TensorIterator::reorder_dimensions() {
   auto should_swap = [&](size_t dim0, size_t dim1) {
     for (const auto arg : irange(ntensors())) {
       // ignore undefined or incorrectly sized tensors
-      if (operands_[arg].stride_bytes.empty() || operands_[arg].will_resize) {
+      if (operands_[arg].stride_bytes.empty() || operands_[arg].should_resize) {
         continue;
       }
       int64_t stride0 = operands_[arg].stride_bytes[dim0];
       int64_t stride1 = operands_[arg].stride_bytes[dim1];
-      if (is_reduction_ && operands_[arg].is_output) {
-        // move reduced dimensions to the front
-        // strides of reduced dimensions are always set to 0 by
-        // review_reduce_result
+      if (is_reduction_ && operands_[arg].is_out) {
+        // move reduced dimensions to the front strides of reduced dimensions
+        // are always set to 0 by view_reduce_result
         if ((stride0 == 0) != (stride1 == 0)) {
           return stride1 == 0 ? 1 : -1;
         }
@@ -131,9 +138,9 @@ void TensorIterator::reorder_dimensions() {
 
   // insertion sort with support for ambiguous comparisons
   for (const auto i : irange(1, ndim())) {
-    int dim1 = i;
-    for (int dim0 = i - 1; dim0 >= 0; dim0--) {
-      int comparison = should_swap(perm_[dim0], perm_[dim1]);
+    int64_t dim1 = i;
+    for (int64_t dim0 = i - 1; dim0 >= 0; dim0--) {
+      int64_t comparison = should_swap(perm_[dim0], perm_[dim1]);
       if (comparison > 0) {
         std::swap(perm_[dim0], perm_[dim1]);
         dim1 = dim0;
@@ -147,7 +154,7 @@ void TensorIterator::reorder_dimensions() {
   permute_dimensions(perm_);
 }
 
-IntArrayRef TensorIterator::compatible_stride(int element_size) const {
+IntArrayRef TensorIterator::compatible_stride(int64_t element_size) const {
   auto stride = IntArrayRef();
   int64_t next_stride = element_size;
   for (const auto dim : irange(ndim())) {
@@ -170,33 +177,17 @@ IntArrayRef TensorIterator::invert_perm(IntArrayRef input) const {
   return res;
 }
 
-void TensorIterator::compute_device() {
-  // Reviews operands
-  //   - validates that all input tensors are defined
-  //   - computes common device
-  Device common_device = Device("cpu");
-
+// checks that all tensors are on the same device
+void TensorIterator::check_device() {
+  // consider the device of first input as the common device
+  common_device_ = operands_[num_outputs_].optional_device();
   for (auto& op : operands_) {
-    // Validates input tensors are defined
     if (!op.tensor().defined()) {
-      TORCH_CHECK(op.is_output, "Found undefined input tensor!");
+      TORCH_CHECK(op.is_out, "Found undefined input tensor!");
       continue;
     }
-
-    // Acquires the first non-CPU device (if any) as the common device
-    if (common_device.is_cpu() && !op.optional_device().is_cpu()) {
-      common_device_ = op.optional_device();
-    }
-  }
-
-  // checks that all tensors are on the same device, if requested
-  for (auto& op : operands_) {
-    // Skips undefined tensors
-    if (!op.tensor().defined()) {
-      continue;
-    }
-    // Checks all tensors are on the same device, if requested
-    TORCH_CHECK(op.optional_device() == common_device,
+    // Checks all tensors are on the same device
+    TORCH_CHECK(op.tensor().device() == common_device_,
                 "Expected all tensors to be on the same device, but "
                 "found at least two devices.");
   }
@@ -205,8 +196,8 @@ void TensorIterator::compute_device() {
 void TensorIterator::allocate_or_resize_outputs() {
   for (const auto i : irange(num_outputs_)) {
     auto& op = operands_[i];
-    if (!op.tensor().defined() || op.will_resize) {
-      int element_size = sizeof(data_t);
+    if (!op.tensor().defined() || op.should_resize) {
+      int64_t element_size = op.tensor().element_size();
       op.stride_bytes = compatible_stride(element_size);
       // check if permutation is just an inverted order
       bool inverted = true;
@@ -245,7 +236,7 @@ void TensorIterator::coalesce_dimensions() {
 
   // We can coalesce two adjacent dimensions if either dim has size 1 or if:
   // shape[n] * stride[n] == stride[n + 1].
-  auto can_coalesce = [&](int dim0, int dim1) {
+  auto can_coalesce = [&](int64_t dim0, int64_t dim1) {
     auto shape0 = shape_[dim0];
     auto shape1 = shape_[dim1];
     if (shape0 == 1 || shape1 == 1) {
@@ -261,14 +252,14 @@ void TensorIterator::coalesce_dimensions() {
   };
 
   // replace each operands stride at dim0 with its stride at dim1
-  auto replace_stride = [&](int dim0, int dim1) {
+  auto replace_stride = [&](int64_t dim0, int64_t dim1) {
     for (const auto i : irange(ntensors())) {
       auto& stride = operands_[i].stride_bytes;
       stride[dim0] = stride[dim1];
     }
   };
 
-  int prev_dim = 0;
+  int64_t prev_dim = 0;
   for (const auto dim : irange(1, ndim())) {
     if (can_coalesce(prev_dim, dim)) {
       if (shape_[prev_dim] == 1) {
@@ -299,7 +290,7 @@ int64_t TensorIterator::numel() const {
   return numel;
 }
 
-IntArrayRef TensorIterator::get_dim_strides(int dim) const {
+IntArrayRef TensorIterator::get_dim_strides(int64_t dim) const {
   auto dims = ndim();
   auto inner_strides = IntArrayRef();
   for (auto& op : operands_) {
@@ -319,7 +310,7 @@ void TensorIterator::permute_dimensions(IntArrayRef perm) {
               "perm.size() == static_cast<unsigned>(ndim())");
 
   auto reorder = [perm](IntArrayRef data) {
-    auto res = IntArrayRef{data.size()};
+    auto res = IntArrayRef(data.size());
     for (const auto i : irange(perm.size())) {
       res[i] = data[perm[i]];
     }
@@ -347,7 +338,7 @@ void TensorIterator::for_each(TensorIterator::loop2d_t loop,
 
 IntArrayRef TensorIterator::get_strides() const {
   const auto dim = ndim();
-  IntArrayRef strides(std::max(dim, 2) * ntensors());
+  IntArrayRef strides(std::max(dim, static_cast<int64_t>(2)) * ntensors());
   internal::get_strides(strides.vec().data(), operands_, dim);
   return strides;
 }
@@ -362,7 +353,7 @@ void TensorIterator::serial_for_each(TensorIterator::loop2d_t loop,
   const auto ndim = this->ndim();
 
   PtrArrayRef ptrs(ntensors);
-  IntArrayRef strides(ntensors * std::max(ndim, 2));
+  IntArrayRef strides(ntensors * std::max(ndim, static_cast<int64_t>(2)));
 
   internal::get_base_ptrs(ptrs.vec().data(), operands_);
   internal::get_strides(strides.vec().data(), operands_, ndim);
@@ -380,78 +371,76 @@ bool TensorIterator::is_contiguous() const {
   return has_contiguous_first_dim();
 }
 
-void TensorIterator::mark_outputs() {
+void TensorIterator::mark_outs() {
   for (const auto i : irange(num_outputs_)) {
-    operands_[i].is_output = true;
-    const auto& output = tensor(i);
-    if (!output.defined()) continue;
+    operands_[i].is_out = true;
+    const auto& out = tensor(i);
+    if (!out.defined()) continue;
 
     // check if output is also an input
     for (const auto arg : irange(num_outputs_, ntensors())) {
       const auto& input = tensor(arg);
-      if (output.equal(input)) {
-        operands_[i].is_read_write = true;
+      if (out.equal(input)) {
+        operands_[i].is_in_out = true;
       }
     }
   }
 }
 
-void TensorIterator::mark_resize_outputs() {
-  // Outputs cannot be broadcasted. Check that the shape of the outputs matches
-  // the inferred shape. There's an exception for write-only tensors to support
-  // our legacy behavior that functions with `out=` arguments resize their
-  // outputs.
+void TensorIterator::mark_resize_outs() {
+  // Check that the shape of the outputs matches the inferred shape.
   for (const auto i : irange(num_outputs_)) {
     const auto& output = tensor(i);
     if (output.defined() && output.shape() != shape_) {
-      if (!operands_[i].is_read_write) {
-        operands_[i].will_resize = true;
+      if (resize_outs_ && !operands_[i].is_in_out) {
+        operands_[i].should_resize = true;
         continue;
       }
       // for reduction, output size does not match shape_, as output is reduced
-      // size, and shape_ is size of the input
       TORCH_CHECK(is_reduction_, "output with shape ", output.shape(),
                   " doesn't match the broadcast shape ", shape_);
     }
   }
 }
 
-IntArrayRef infer_size(IntArrayRef a, IntArrayRef b) {
-  size_t dimsA = a.size();
-  size_t dimsB = b.size();
-  size_t ndim = dimsA > dimsB ? dimsA : dimsB;
-  IntArrayRef expandedSizes(ndim);
+// coumpute broadcast shape
+// for example: a = [2, 1, 3], b = [2, 1], the result shape would be [2, 2, 3]
+IntArrayRef compute_broadcast_shape(IntArrayRef a, IntArrayRef b) {
+  size_t ndim_a = a.size();
+  size_t ndim_b = b.size();
+  size_t ndim = ndim_a > ndim_b ? ndim_a : ndim_b;
+  // size of result is the bigger ndim
+  IntArrayRef result(ndim);
 
   // Use ptrdiff_t to ensure signed comparison.
   for (ptrdiff_t i = (ptrdiff_t)ndim - 1; i >= 0; --i) {
-    ptrdiff_t offset = ndim - 1 - i;
-    ptrdiff_t dimA = dimsA - 1 - offset;
-    ptrdiff_t dimB = dimsB - 1 - offset;
-    auto sizeA = (dimA >= 0) ? a[dimA] : 1;
-    auto sizeB = (dimB >= 0) ? b[dimB] : 1;
+    // starting from the last index of a and b, then moving forward
+    ptrdiff_t dim_a = ndim_a - ndim + i;
+    ptrdiff_t dim_b = ndim_b - ndim + i;
+    // if the index is smaller than 0, consider it as 1
+    auto size_a = (dim_a >= 0) ? a[dim_a] : 1;
+    auto size_b = (dim_b >= 0) ? b[dim_b] : 1;
 
-    TORCH_CHECK(sizeA == sizeB || sizeA == 1 || sizeB == 1,
-                "The size of tensor a (", sizeA,
-                ") must match the size of tensor b (", sizeB,
+    TORCH_CHECK(size_a == size_b || size_a == 1 || size_b == 1,
+                "The size of tensor a (", size_a,
+                ") must match the size of tensor b (", size_b,
                 ") at non-singleton dimension ", i);
 
-    // 1s map to the other size (even 0).
-    expandedSizes[i] = sizeA == 1 ? std::move(sizeB) : std::move(sizeA);
+    // 1 is mapped to the other size (even for 0).
+    result[i] = size_a == 1 ? size_b : size_a;
   }
 
-  return expandedSizes;
+  return result;
 }
 
-void TensorIterator::compute_shape() {
-  all_ops_same_shape_ = true;
+void TensorIterator::compute_common_shape() {
   bool has_scalars = false;
   bool has_tensors = false;
   for (auto& op : operands_) {
     if (!op.tensor().defined()) continue;
-    // For now, don't include output tensors when we're resizing outputs.
-    // These shapes don't participate in shape computation.
+    // Output shapes don't participate in shape computation.
     // If the output tensor is also an input, we'll pick it up later.
-    if (op.is_output) continue;
+    if (resize_outs_ && op.is_out) continue;
     auto shape = op.tensor().shape();
     if (shape.empty()) {
       has_scalars = true;
@@ -465,24 +454,25 @@ void TensorIterator::compute_shape() {
       shape_ = shape;
     } else if (!(shape == shape_)) {
       all_ops_same_shape_ = false;
-      shape_ = infer_size(shape_, shape);
+      shape_ = compute_broadcast_shape(shape_, shape);
     }
   }
 }
 
 void TensorIterator::compute_strides() {
   for (auto& op : operands_) {
-    if (op.tensor().defined() && !op.will_resize) {
+    if (op.tensor().defined() && !op.should_resize) {
       IntArrayRef original_shape = op.tensor().shape();
       auto original_stride = op.tensor().stride();
       auto element_size_in_bytes = op.tensor().element_size();
       auto offset = ndim() - original_shape.size();
-      if (offset > 0)
+      if (offset > 0) {
         op.stride_bytes.resize(ndim(), 0);
-      else
+      }
+      else {
         op.stride_bytes.resize(ndim());
+      }
       for (const auto i : irange(original_shape.size())) {
-        // see NOTE: [Computing output strides]
         if (original_shape[i] == 1 && shape_[offset + i] != 1) {
           op.stride_bytes[offset + i] = 0;
         } else {
@@ -494,10 +484,24 @@ void TensorIterator::compute_strides() {
   }
 }
 
+FastSetupType TensorIterator::compute_fast_setup_type() {
+  if (is_reduction_ || !all_ops_same_shape_) {
+    return FastSetupType::NONE;
+  }
+  // non-contiguous tensor can not be used for fast setup
+  for (const auto& op : operands_) {
+    if (op.tensor().defined() && !op.should_resize) {
+      if (!op.tensor().is_contiguous()) {
+        return FastSetupType::NONE;
+      }
+    }
+  }
+  return FastSetupType::CONTIGUOUS;
+}
+
+// This function tries to do a fast setup to avoid needless reordering of
+// dimensions and tracking output strides.
 bool TensorIterator::fast_set_up() {
-  // This function tries to do a fast setup to avoid needless reordering of
-  // dimensions and tracking output strides Return true if it can do fast setup
-  // or false otherwise
   FastSetupType setup_type = compute_fast_setup_type();
   // allocate memory for output, memory format depends on setup_type
   switch (setup_type) {
@@ -505,17 +509,15 @@ bool TensorIterator::fast_set_up() {
       return false;
     case FastSetupType::CONTIGUOUS: {
       for (const auto i : irange(num_outputs_)) {
-        auto& op = operands_[i];
-        set_output_raw_strided(i, shape_, {}, op.optional_device(),
-                               op.optional_requires_grad());
+        set_output_raw_strided(i, shape_, {}, common_device_,
+                               operands_[i].optional_requires_grad());
       }
       break;
     }
     default:
       TORCH_CHECK(false, "Unsupported fast setup type");
   }
-  // coalescing dimensions consists of collapsing dimensions to 1 (we are
-  // limited to contiguous no-broadcast cases here)
+  // coalescing dimensions consists of collapsing dimensions to 1
   if (ndim() > 1) {
     has_coalesced_dimensions_ = true;
   }
@@ -524,41 +526,23 @@ bool TensorIterator::fast_set_up() {
     shape_.resize(1);
   }
   for (auto& op : operands_) {
-    auto element_size_in_bytes = op.tensor().element_size();
     op.stride_bytes.resize(ndim());
     if (ndim() > 0) {
-      op.stride_bytes[0] = element_size_in_bytes;
+      op.stride_bytes[0] = op.tensor().element_size();
     }
   }
   return true;
 }
 
-FastSetupType TensorIterator::compute_fast_setup_type() {
-  if (is_reduction_ || !all_ops_same_shape_) {
-    return FastSetupType::NONE;
-  }
-
-  bool is_contiguous = true;
-  for (const auto& op : operands_) {
-    if (op.tensor().defined() && !op.will_resize) {
-      is_contiguous &= op.tensor().is_contiguous();
-    }
-  }
-  if (is_contiguous) {
-    return FastSetupType::CONTIGUOUS;
-  }
-  return FastSetupType::NONE;
-}
-
 void TensorIterator::build() {
-  // set is_output and is_read_write flags on appropriate tensors
-  mark_outputs();
-  // compute the broadcasted shape
-  compute_shape();
+  // set is_out and is_in_out flags on appropriate tensors
+  mark_outs();
+  // compute the common broadcasted shape
+  compute_common_shape();
   // mark outputs for resizing if necessary
-  mark_resize_outputs();
+  mark_resize_outs();
   // compute the result device
-  compute_device();
+  check_device();
   // try fast setup output tensor, if failed, fallback to normal setup
   if (!fast_set_up()) {
     // compute each tensor's stride after broadcasting
@@ -576,28 +560,21 @@ void TensorIterator::build() {
   }
 }
 
+// Set output when output is not defined or should be resize
 void TensorIterator::set_output_raw_strided(int64_t output_idx,
                                             IntArrayRef sizes,
                                             IntArrayRef strides, Device device,
                                             bool requires_grad) {
-  // NB: intentionally no superclass call
-  auto& op = operands_[output_idx];
   TORCH_CHECK(output_idx < num_outputs_, "output_idx should < num_outputs_");
+  auto& op = operands_[output_idx];
   if (!op.tensor().defined()) {
     if (strides.empty()) {
       op.tensor(empty(sizes, device, requires_grad));
     } else {
-      TORCH_CHECK(false, "stride set is not supported now.");
-      // op.tensor(at::empty_strided(sizes, strides, device, requires_grad));
+      TORCH_CHECK(false, "TODO: stride set is not supported now.");
     }
-  } else if (op.will_resize) {
-    TORCH_CHECK(false, "resize is not supported now.");
-    // at::native::resize_output(op.tensor(), sizes);
-    // if (!strides.empty()) {
-    //   op.tensor().as_strided_(sizes, strides);
-    // } else {
-    //   op.tensor().empty_tensor_restride();
-    // }
+  } else if (op.should_resize) {
+    TORCH_CHECK(false, "TODO: resize is not supported now.");
   }
 }
 
@@ -624,7 +601,7 @@ void DimCounter::increment(const std::array<int64_t, 2>& step) {
   offset += step[0] * step[1];
   int64_t ndim = values.size();
   int64_t overflow = step[0];
-  int i = 0;
+  int64_t i = 0;
   if (step[1] != 1) {
     TORCH_CHECK(step[0] == shape[0] && values[0] == 0,
                 "step[0] should == shape[0] && values[0] should == 0.");
