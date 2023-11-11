@@ -142,8 +142,14 @@ def rand(size: Union[list, int, float], device: str = 'cpu',
         _wrap_scalar_to_list(size), device, requires_grad))
 
 
-def sum(tensor: Tensor) -> Tensor:
-    return Tensor(_microtorch.sum(tensor))
+def sum(tensor: Tensor, dims: Union[list[int], int, None] = None,
+        keep_dim: bool = False) -> Tensor:
+    if dims is None:
+        return Tensor(_microtorch.sum(tensor))
+    else:
+        if not isinstance(dims, list):
+            dims = [dims]
+        return Tensor(_microtorch.sum_dim(tensor, dims, keep_dim))
 
 
 def square(tensor: Tensor) -> Tensor:

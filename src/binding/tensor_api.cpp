@@ -95,6 +95,7 @@ void export_tensor_class(py::module &m) {
       .def("cpu", &Tensor::cpu)
       .def("square", &Tensor::square)
       .def("equal", &Tensor::equal)
+      .def("item", &Tensor::item)
       .def("defined", &Tensor::defined);
 }
 
@@ -103,6 +104,9 @@ void export_tensor_function(py::module &m) {
       .def("zeros", &microtorch::zeros)
       .def("ones", &microtorch::ones)
       .def("rand", &microtorch::rand)
-      .def("sum", &microtorch::sum, "get the sum result of a tensor")
+      .def("sum", &microtorch::sum,
+           "get the sum result of a tensor")  // TODO: merge sum_dim together
+      .def("sum_dim", &microtorch::sum_dim,
+           "get the sum (dim) result of a tensor")
       .def("square", &microtorch::square, "get the square result of a tensor");
 }
