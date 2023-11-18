@@ -59,30 +59,19 @@ struct DimCounter {
   std::array<int64_t, 2> max_2d_step() const;
 
   IntArrayRef shape;
+  // `range` is the range of elements to be processed, like {0, numel()}.
   Range range;
+  // The offset on each dimension, note that it's the offset of the elements, not stride.
   IntArrayRef values;
+  // The offset of the current element being processed.
   int64_t offset;
 };
 
-enum class FastSetupType : uint8_t {
-  NONE,
-  CONTIGUOUS,
-};
-
 struct TensorIterator {
-  // The inner-loop function operates on the fastest moving dimension.
-  //
-  // Arguments:
-  //  data: data pointers for each operand (length `ntensors`)
-  //  strides: stride for each operand (length `ntensors`)
-  //  size: size of inner loop
-  using loop2d_t = FuncRef<void(char** data, const int64_t* strides,
-                                int64_t size0, int64_t size1)>;
-
   void build();
   int64_t ndim() const { return shape_.size(); }
   IntArrayRef shape() const { return shape_; }
-  int64_t numel() const;
+  int64_t numel() const { return shape_.numel(); }
   int64_t ntensors() const { return operands_.size(); }
   int64_t noutputs() const { return num_outputs_; }
   int64_t ninputs() const { return ntensors() - noutputs(); }
@@ -144,22 +133,29 @@ struct TensorIterator {
  public:
   template <typename loop1d_t,
             std::enable_if_t<
-                std::is_convertible<loop1d_t,
-                                    FuncRef<void(char**, const int64_t* strides,
-                                                 int64_t size)>>::value,
-                int64_t> = 0>
+                std::is_convertible_v<
+                    loop1d_t, FuncRef<void(char**, const int64_t* strides,
+                                           int64_t size)>>,
+                int> = 0>
   void for_each(loop1d_t loop, int64_t grain_size = GRAIN_SIZE) {
     for_each(loop_2d_from_1d(loop), grain_size);
   }
 
+  // The inner-loop function operates on the fastest moving dimension.
+  // Arguments:
+  //  data: data pointers for each operand (length `ntensors`)
+  //  strides: stride for each operand (length `ntensors`)
+  //  size: size of inner loop
+  using loop2d_t = FuncRef<void(char** data, const int64_t* strides,
+                                int64_t size0, int64_t size1)>;
   void for_each(loop2d_t loop, int64_t grain_size = GRAIN_SIZE);
 
   template <typename loop1d_t,
             std::enable_if_t<
-                std::is_convertible<loop1d_t,
-                                    FuncRef<void(char**, const int64_t* strides,
-                                                 int64_t size)>>::value,
-                int64_t> = 0>
+                std::is_convertible_v<
+                    loop1d_t, FuncRef<void(char**, const int64_t* strides,
+                                           int64_t size)>>,
+                int> = 0>
   void serial_for_each(loop1d_t loop, Range range) {
     serial_for_each(loop_2d_from_1d(loop), range);
   }
@@ -178,9 +174,7 @@ struct TensorIterator {
 
   // Helper functions for CPU iteration
   IntArrayRef get_dim_strides(int64_t dim) const;
-  IntArrayRef get_strides() const;
   IntArrayRef get_inner_strides() const { return get_dim_strides(0); }
-  PtrArrayRef get_base_ptrs() const;
 
   const Tensor& maybe_get_output(int64_t output_idx) {
     return output(output_idx);
@@ -198,9 +192,8 @@ struct TensorIterator {
     return true;
   }
 
-  void set_output_raw_strided(int64_t output_idx, IntArrayRef sizes,
-                              IntArrayRef strides, Device device,
-                              bool requires_grad);
+  void configure_output(OperandInfo& op, IntArrayRef sizes, IntArrayRef strides,
+                        bool requires_grad);
 
   // set properties
   TensorIterator& resize_outs(bool resize_outs) {
@@ -221,8 +214,8 @@ struct TensorIterator {
   void permute_dimensions(IntArrayRef perm);
   void check_device();
   void allocate_or_resize_outputs();
-  bool fast_set_up();
-  FastSetupType compute_fast_setup_type();
+  void fast_set_up();
+  bool can_do_fast_setup();
   void coalesce_dimensions();
 
  protected:

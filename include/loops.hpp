@@ -11,7 +11,7 @@
 #include <utility>
 
 #include "exception.hpp"
-#include "funcTraits.h"
+#include "funcTraits.hpp"
 #include "irange.hpp"
 #include "tensorIterator.hpp"
 
@@ -65,13 +65,15 @@ typename traits::ArgsTuple dereference_impl(char* data[],
 template <typename traits>
 typename traits::ArgsTuple dereference(char* data[], const int64_t* strides,
                                        int64_t i) {
-  using Indices = std::make_index_sequence<traits::arity>;
+  using Indices = std::make_index_sequence<traits::num_args>;
   return dereference_impl<traits>(data, strides, i, Indices{});
 }
 
-template <typename func_t,
-          typename std::enable_if<!std::is_void<typename FuncTraits<
-              func_t>::result_type>::value>::type* = nullptr>
+// SFINAE: Valid when result_type of func_t is not `void`
+template <
+    typename func_t,
+    std::enable_if_t<
+        !std::is_void_v<typename FuncTraits<func_t>::result_type>, int> = 0>
 static inline void execute_op(char* data[], const int64_t* strides, int64_t i,
                               int64_t n, func_t&& op) {
   using traits = FuncTraits<func_t>;
@@ -83,9 +85,11 @@ static inline void execute_op(char* data[], const int64_t* strides, int64_t i,
   }
 }
 
-template <typename func_t,
-          typename std::enable_if<std::is_void<typename FuncTraits<
-              func_t>::result_type>::value>::type* = nullptr>
+// SFINAE: Valid when result_type of func_t is `void`
+template <
+    typename func_t,
+    std::enable_if_t<
+        std::is_void_v<typename FuncTraits<func_t>::result_type>, int> = 0>
 static inline void execute_op(char* data[], const int64_t* strides, int64_t i,
                               int64_t n, func_t&& op) {
   using traits = FuncTraits<func_t>;
@@ -101,7 +105,7 @@ template <typename func_t>
 static inline void basic_loop(char* data[], const int64_t* strides_, int64_t i,
                               int64_t n, func_t&& op) {
   using traits = FuncTraits<func_t>;
-  constexpr int ntensors = traits::arity + 1;
+  constexpr int ntensors = traits::num_args + 1;
 
   // Copying strides to temporary array helps auto vectorization in older GCC
   // versions.
@@ -117,8 +121,7 @@ template <typename func_t>
 void cpu_kernel(TensorIterator& iter, func_t&& op,
                 int64_t grain_size = GRAIN_SIZE) {
   using traits = FuncTraits<func_t>;
-  // this could be extended to work with void return types
-  TORCH_INTERNAL_ASSERT(iter.ninputs() == traits::arity);
+  TORCH_INTERNAL_ASSERT(iter.ninputs() == traits::num_args);
   TORCH_INTERNAL_ASSERT(iter.noutputs() == 1);
 
   iter.for_each(
@@ -133,9 +136,8 @@ void cpu_kernel(TensorIterator& iter, func_t&& op,
 template <typename func_t>
 void cpu_serial_kernel(TensorIterator& iter, func_t&& op, const Range& range) {
   using traits = FuncTraits<func_t>;
-  constexpr bool result_void =
-      std::is_void<typename traits::result_type>::value;
-  TORCH_INTERNAL_ASSERT(iter.ninputs() == traits::arity &&
+  constexpr bool result_void = std::is_void_v<typename traits::result_type>;
+  TORCH_INTERNAL_ASSERT(iter.ninputs() == traits::num_args &&
                         ((result_void && iter.noutputs() == 0) ||
                          (!result_void && iter.noutputs() == 1)));
 

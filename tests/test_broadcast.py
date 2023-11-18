@@ -14,15 +14,14 @@ def test_broadcast_op() -> None:
 
     t4 = microtorch.sum(t3)
     t4.backward()
-    print(t1.grad())    # should be [1, 1, 1]
-    print(t2.grad())    # [1] now, TODO: should be [3]
+    print(t1.grad())  # should be [1, 1, 1]
+    print(t2.grad())  # [1] now, TODO: should be [3]
 
-    # TODO: shape [2, 2] + [2, 1]
-    # t1 = microtorch.ones([2, 2])
-    # t2 = microtorch.ones([2, 1])
-    # t3 = t1 + t2
-    # print(t3)
-    # assert t3.equal(microtorch.Tensor([[3, 4], [6, 7]]))
+    t1 = microtorch.ones([2, 2])
+    t2 = microtorch.ones([2, 1])
+    t3 = t1 + t2
+    assert microtorch.sum(t3)[0] == 8
+    assert t3.shape() == [2, 2]
 
 
 if __name__ == "__main__":

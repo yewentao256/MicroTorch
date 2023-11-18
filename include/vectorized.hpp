@@ -28,7 +28,7 @@ struct Vectorized {
     }
   }
   template <typename... Args,
-            typename = std::enable_if_t<(sizeof...(Args) == size())>>
+            std::enable_if_t<(sizeof...(Args) == size()), int> = 0>
   Vectorized(Args... vals) : values{vals...} {}
   // This also implies const T& operator[](int idx) const
   inline operator const T *() const { return values; }
@@ -97,7 +97,9 @@ struct Vectorized {
 };
 
 template <typename VT>
-struct VecHoldType { using hold_type = typename VT::value_type; };
+struct VecHoldType {
+  using hold_type = typename VT::value_type;
+};
 
 template <typename VT>
 using vechold_type = typename VecHoldType<VT>::hold_type;
@@ -134,31 +136,30 @@ Vectorized<acc_t> load_reduce_vec(const scalar_t *data, F reduce, acc_t ident) {
   return vacc_t::loadu(acc.data());
 }
 
-
 template <typename T>
-inline Vectorized<T>& operator += (Vectorized<T>& a, const Vectorized<T>& b) {
+inline Vectorized<T> &operator+=(Vectorized<T> &a, const Vectorized<T> &b) {
   a = a + b;
   return a;
 }
 template <typename T>
-inline Vectorized<T>& operator -= (Vectorized<T>& a, const Vectorized<T>& b) {
+inline Vectorized<T> &operator-=(Vectorized<T> &a, const Vectorized<T> &b) {
   a = a - b;
   return a;
 }
 template <typename T>
-inline Vectorized<T>& operator /= (Vectorized<T>& a, const Vectorized<T>& b) {
+inline Vectorized<T> &operator/=(Vectorized<T> &a, const Vectorized<T> &b) {
   a = a / b;
   return a;
 }
 template <typename T>
-inline Vectorized<T>& operator %= (Vectorized<T>& a, const Vectorized<T>& b) {
+inline Vectorized<T> &operator%=(Vectorized<T> &a, const Vectorized<T> &b) {
   a = a % b;
   return a;
 }
 template <typename T>
-inline Vectorized<T>& operator *= (Vectorized<T>& a, const Vectorized<T>& b) {
+inline Vectorized<T> &operator*=(Vectorized<T> &a, const Vectorized<T> &b) {
   a = a * b;
   return a;
 }
 
-} // namespace microtorch
+}  // namespace microtorch

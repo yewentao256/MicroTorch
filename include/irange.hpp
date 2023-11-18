@@ -13,9 +13,11 @@ namespace microtorch {
 
 namespace internal {
 
+// SFINAE (Substitution Failure Is Not An Error)
 template <typename I, bool negative_check = false,
-          typename std::enable_if<std::is_integral<I>::value, int>::type = 0>
+          std::enable_if_t<std::is_integral_v<I>, int> = 0>
 struct Iterator {
+  // declaration for c++ iterator
   using iterator_category = std::input_iterator_tag;
   using value_type = I;
   using difference_type = std::ptrdiff_t;
@@ -56,8 +58,7 @@ struct Iterator {
 }  // namespace internal
 
 template <typename I, bool negative_check = false,
-          typename std::enable_if<std::is_integral<I>::value, bool>::type =
-              true>
+          std::enable_if_t<std::is_integral_v<I>, int> = 0>
 struct IntRange {
  public:
   IntRange(I begin, I end) : begin_(begin), end_(end) {}
@@ -70,15 +71,13 @@ struct IntRange {
   iterator end_;
 };
 
-// SFINAE (Substitution Failure Is Not An Error)
 // Creates an integer range for the half-open interval [begin, end)
 // If end <= begin, then the range is empty.
 // Using the dtype of the `Integer2 end`
-template <typename Integer1, typename Integer2,
-          typename std::enable_if<std::is_integral<Integer1>::value,
-                                  bool>::type = true,
-          typename std::enable_if<std::is_integral<Integer2>::value,
-                                  bool>::type = true>
+template <
+    typename Integer1, typename Integer2,
+    std::enable_if_t<
+        std::is_integral_v<Integer1> && std::is_integral_v<Integer2>, int> = 0>
 IntRange<Integer2> irange(Integer1 begin, Integer2 end) {
   return {static_cast<Integer2>(begin),
           std::max(static_cast<Integer2>(begin), end)};
@@ -86,8 +85,7 @@ IntRange<Integer2> irange(Integer1 begin, Integer2 end) {
 
 // Creates an integer range for the half-open interval [0, end)
 template <typename Integer,
-          typename std::enable_if<std::is_integral<Integer>::value,
-                                  bool>::type = true>
+          std::enable_if_t<std::is_integral_v<Integer>, int> = 0>
 IntRange<Integer, true> irange(Integer end) {
   return {Integer(), end};
 }

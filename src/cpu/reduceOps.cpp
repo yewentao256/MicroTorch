@@ -159,7 +159,6 @@ std::array<scalar_t, nrows> multi_row_sum(const char *in_data,
   const int64_t level_step = (1 << level_power);
   const int64_t level_mask = level_step - 1;
 
-  // NOLINTNEXTLINE(modernize-avoid-c-arrays,cppcoreguidelines-avoid-c-arrays)
   scalar_t acc[num_levels][nrows];
   std::fill_n(&acc[0][0], num_levels * nrows, scalar_t(0));
 
@@ -240,10 +239,8 @@ scalar_t row_sum(const char *in_data, const int64_t in_stride,
 
 template <typename acc_t, typename VecLoadPolicy, typename ScalarLoadPolicy,
           typename StorePolicy>
-void vectorized_inner_sum(
-    // NOLINTNEXTLINE(modernize-avoid-c-arrays,cppcoreguidelines-avoid-c-arrays)
-    char *data[2], int64_t outer_stride, int64_t out_stride, int64_t size0,
-    int64_t size1) {
+void vectorized_inner_sum(char *data[2], int64_t outer_stride,
+                          int64_t out_stride, int64_t size0, int64_t size1) {
   using vacc_t = Vectorized<acc_t>;
   constexpr int64_t vec_stride = VecLoadPolicy::memsize();
   constexpr int64_t scalar_stride = ScalarLoadPolicy::memsize();
@@ -270,10 +267,8 @@ void vectorized_inner_sum(
 }
 
 template <typename acc_t, typename LoadPolicy, typename StorePolicy>
-void scalar_inner_sum(
-    // NOLINTNEXTLINE(modernize-avoid-c-arrays,cppcoreguidelines-avoid-c-arrays)
-    char *data[2], int64_t in_strides[2], int64_t out_stride, int64_t size0,
-    int64_t size1) {
+void scalar_inner_sum(char *data[2], int64_t in_strides[2], int64_t out_stride,
+                      int64_t size0, int64_t size1) {
   for (const auto j : irange(size1)) {
     const auto *row_in = data[1] + j * in_strides[1];
     auto ans = row_sum<acc_t, LoadPolicy>(row_in, in_strides[0], size0);
@@ -283,10 +278,8 @@ void scalar_inner_sum(
 
 template <typename acc_t, typename VecLoadPolicy, typename ScalarLoadPolicy,
           typename StorePolicy>
-void vectorized_outer_sum(
-    // NOLINTNEXTLINE(modernize-avoid-c-arrays,cppcoreguidelines-avoid-c-arrays)
-    char *data[2], int64_t inner_stride, int64_t out_stride, int64_t size0,
-    int64_t size1) {
+void vectorized_outer_sum(char *data[2], int64_t inner_stride,
+                          int64_t out_stride, int64_t size0, int64_t size1) {
   using vacc_t = Vectorized<acc_t>;
   constexpr int64_t scalar_stride = ScalarLoadPolicy::memsize();
   constexpr int64_t vec_stride = VecLoadPolicy::memsize();
@@ -321,10 +314,8 @@ void vectorized_outer_sum(
 }
 
 template <typename acc_t, typename LoadPolicy, typename StorePolicy>
-void scalar_outer_sum(
-    // NOLINTNEXTLINE(modernize-avoid-c-arrays,cppcoreguidelines-avoid-c-arrays)
-    char *data[2], int64_t in_strides[2], int64_t out_stride, int64_t size0,
-    int64_t size1) {
+void scalar_outer_sum(char *data[2], int64_t in_strides[2], int64_t out_stride,
+                      int64_t size0, int64_t size1) {
   constexpr int64_t nrows = 4;
   int64_t j = 0;
   for (; j + (nrows - 1) < size1; j += nrows) {
