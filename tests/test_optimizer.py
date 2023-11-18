@@ -28,9 +28,9 @@ def test_one_iter(device="cpu") -> None:
     for _ in range(1):
         optimizer.zero_grad()
         prediction = model(observation)
-        assert sum(prediction == Tensor([2, 3, 4]))[0] == 3
+        assert prediction.equal(Tensor([2, 3, 4]))
         loss = sum(square(prediction - target))
-        assert loss[0] == 14    # 1 + 4 + 9
+        assert loss[0] == 14  # 1 + 4 + 9
         loss.backward()
         optimizer.step()
 
@@ -78,4 +78,4 @@ if __name__ == "__main__":
     if microtorch.cuda.is_cuda_available():
         test_one_iter("cuda")
         test_three_iter_momentum_nesterov("cuda")
-    print('successfully pass the test!')
+    print("successfully pass the test!")

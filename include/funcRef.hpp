@@ -14,10 +14,8 @@ namespace microtorch {
 
 // Note: FuncRef does not own the lifecycle of the callable it references.
 // As such, users must ensure:
-//
 // 1. The referenced callable (e.g., function, lambda, functor) remains alive
 //    and in scope for as long as the function_ref instance might be invoked.
-//
 // 2. Be cautious when passing temporary callables to function_ref, as they
 //    might be destroyed at the end of the expression they were created in.
 
@@ -44,16 +42,14 @@ class FuncRef<Ret(Params...)> {
 
   // SFINAE (Substitution Failure Is Not An Error)
   // Callable&& callable: right valued referrence, accepting any callable
-  // Param2: make sure Callable is not a FuncRef
-  // Param3: make sure Callable can return a `Ret` value
+  // Valid if Callable is not a FuncRef and can return a `Ret` value
   template <typename Callable>
   FuncRef(Callable&& callable,
-          typename std::enable_if<
-              !std::is_same<typename std::remove_reference<Callable>::type,
-                            FuncRef>::value>::type* = nullptr,
-          typename std::enable_if<std::is_convertible<
-              std::invoke_result_t<Callable, Params...>, Ret>::value>::type* =
-              nullptr)
+          std::enable_if_t<
+              !std::is_same_v<std::remove_reference_t<Callable>, FuncRef> &&
+                  std::is_convertible_v<
+                      std::invoke_result_t<Callable, Params...>, Ret>,
+              int> = 0)
       : callback(callback_fn<typename std::remove_reference<Callable>::type>),
         callable(reinterpret_cast<intptr_t>(&callable)) {}
 

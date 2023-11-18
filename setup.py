@@ -55,9 +55,7 @@ class CMakeBuild(build_ext):
 
         if self.compiler.compiler_type == "msvc":
             cmake_args += ["-A", PLAT_TO_CMAKE[self.plat_name]]
-            cmake_args += [
-                f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{cfg.upper()}={extdir}"
-            ]
+            cmake_args += [f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{cfg.upper()}={extdir}"]
             build_args += ["--config", cfg]
 
         # Set CMAKE_BUILD_PARALLEL_LEVEL to control the parallel build level
@@ -73,25 +71,28 @@ class CMakeBuild(build_ext):
         if not build_temp.exists():
             build_temp.mkdir(parents=True)
 
-        logging.info('######sub process running info######')
+        logging.info("######sub process running info######")
         p1 = subprocess.run(
-            ["cmake", ext.sourcedir] + cmake_args, cwd=build_temp,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+            ["cmake", ext.sourcedir] + cmake_args,
+            cwd=build_temp,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
         )
         logging.info(f'Executing CMake command: `{" ".join(p1.args)}`')
-        logging.info(p1.stdout.decode('utf-8', 'ignore'))
+        logging.info(p1.stdout.decode("utf-8", "ignore"))
         p1.check_returncode()
         p2 = subprocess.run(
-            ["cmake", "--build", "."] + build_args, cwd=build_temp,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+            ["cmake", "--build", "."] + build_args,
+            cwd=build_temp,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
         )
         logging.info(f'Executing CMake command: `{" ".join(p2.args)}`')
-        logging.info(p2.stdout.decode('utf-8', 'ignore'))
+        logging.info(p2.stdout.decode("utf-8", "ignore"))
         p2.check_returncode()
-        logging.info('######end of sub process running info######')
+        logging.info("######end of sub process running info######")
 
 
-# TODO: we may use scikit-build instead of CMakeExtension and CMakeBuild
 setup(
     name="microtorch",
     version=__version__,
@@ -102,5 +103,5 @@ setup(
     cmdclass={"build_ext": CMakeBuild},
     extras_require={"test": ["pytest>=6.0"]},
     python_requires=">=3.8",
-    packages=['microtorch'],
+    packages=["microtorch"],
 )
