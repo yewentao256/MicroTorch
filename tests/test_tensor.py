@@ -33,8 +33,11 @@ def test_tensor_one_dimension() -> None:
     assert t4.numel() == 3  # element count
     assert t4.shape()[0] == 3
 
-    t5 = t4 == microtorch.Tensor([7.5, 12, 0])  # equal
-    assert microtorch.sum(t5)[0] == 1
+    assert t4[-1] == 7.5    # negative index
+    t4[-2] = -12
+
+    t5 = t4 == microtorch.Tensor([7.5, -12, 0])  # equal
+    assert microtorch.sum(t5)[0] == 2
 
     # In-place operations
     t4 += t4
@@ -83,6 +86,7 @@ def test_tensor_two_dimension() -> None:
     squared = microtorch.square(t2)
     assert squared[0, 0] == 1
     assert squared[1, 2] == 49
+    assert squared[-1, -1] == 49    # negative index
     assert t2.square() == squared
 
     summed = microtorch.sum(squared)
