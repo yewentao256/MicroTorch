@@ -318,6 +318,7 @@ void scalar_outer_sum(char *data[2], int64_t in_strides[2], int64_t out_stride,
                       int64_t size0, int64_t size1) {
   constexpr int64_t nrows = 4;
   int64_t j = 0;
+  // batch handling sum, batch_size = nrows
   for (; j + (nrows - 1) < size1; j += nrows) {
     const auto *row_in = data[1] + j * in_strides[1];
     auto sums = multi_row_sum<acc_t, nrows, LoadPolicy>(row_in, in_strides[0],
@@ -325,6 +326,7 @@ void scalar_outer_sum(char *data[2], int64_t in_strides[2], int64_t out_stride,
     store<StorePolicy>(data[0], out_stride, j, sums);
   }
 
+  // handling the rest of sum
   for (; j < size1; ++j) {
     const auto *row_in = data[1] + j * in_strides[1];
     auto ans = row_sum<acc_t, LoadPolicy>(row_in, in_strides[0], size0);

@@ -44,6 +44,8 @@ struct ArrayRef {
   void resize(int64_t s, const T& value = T()) { data_.resize(s, value); }
   std::vector<T>& vec() { return data_; }
   const std::vector<T>& vec() const { return data_; }
+  T* data() { return data_.data(); }
+  const T* data() const { return data_.data(); }
   int64_t numel() const {
     static_assert(std::is_integral_v<T>,
                   "numel() is valid only for integral types.");

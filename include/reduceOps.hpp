@@ -65,10 +65,10 @@ inline Tensor view_reduce_result(const Tensor& result, int ndim,
   }
   std::vector<int64_t> shape = result.shape().vec();
   std::vector<int64_t> stride = result.stride().vec();
-  for (const auto dim : irange(ndim)) {
-    if (mask[dim]) {
-      shape.insert(shape.begin() + dim, 1);
-      stride.insert(stride.begin() + dim, 0);
+  for (const auto i : irange(ndim)) {
+    if (mask[i]) {
+      shape.insert(shape.begin() + i, 1);
+      stride.insert(stride.begin() + i, 0);
     }
   }
   return result.as_strided(shape, stride);

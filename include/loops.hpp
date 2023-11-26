@@ -110,8 +110,8 @@ static inline void basic_loop(char* data[], const int64_t* strides_, int64_t i,
   // Copying strides to temporary array helps auto vectorization in older GCC
   // versions.
   int64_t strides[ntensors];
-  for (const auto arg : irange(ntensors)) {
-    strides[arg] = strides_[arg];
+  for (const auto i : irange(ntensors)) {
+    strides[i] = strides_[i];
   }
 
   execute_op(data, strides, i, n, std::forward<func_t>(op));
