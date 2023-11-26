@@ -61,4 +61,14 @@ T CeilLog2(const T& x) {
   return static_cast<T>(std::bit_width(static_cast<uint64_t>(x) - 1));
 }
 
+inline IntArrayRef calculate_init_stride(const IntArrayRef& shape) {
+  IntArrayRef strides(shape.size());
+  int64_t stride = 1;
+  for (int i = shape.size() - 1; i >= 0; --i) {
+    strides[i] = stride;
+    stride *= shape[i];
+  }
+  return strides;
+}
+
 }  // namespace microtorch

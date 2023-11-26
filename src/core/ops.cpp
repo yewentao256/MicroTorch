@@ -49,6 +49,34 @@ std::ostream& operator<<(std::ostream& stream, const Tensor t) {
   return print_with_size(stream, t, 20);
 }
 
+Tensor reduce_grad_if_needed(Tensor t, const IntArrayRef& target_shape) {
+  auto shape = t.shape();
+  if (shape == target_shape) {
+    return t;
+  }
+  if (target_shape.size() == 0) {
+    return sum(t);
+  }
+  IntArrayRef reduce_dims;
+  const int64_t leading_dims = shape.size() - target_shape.size();
+  for (const auto i : irange(leading_dims)) {
+    reduce_dims.push_back(i);
+  }
+  for (int64_t i = leading_dims; i < shape.size(); ++i) {
+    if (target_shape[i - leading_dims] == 1 && shape[i] != 1) {
+      reduce_dims.push_back(i);
+    }
+  }
+
+  if (!reduce_dims.empty()) {
+    t = sum_dim(t, reduce_dims, true);
+  }
+  if (leading_dims > 0) {
+    t = t.as_strided(target_shape, calculate_init_stride(target_shape));
+  }
+  return t;
+}
+
 struct AddNode : public FunctionNode<AddNode> {
   static std::vector<Tensor> forward(Context& ctx, const Tensor& a,
                                      const Tensor& b) {
@@ -60,13 +88,16 @@ struct AddNode : public FunctionNode<AddNode> {
   }
   static std::vector<Tensor> backward(Context& ctx,
                                       std::vector<Tensor>& grads) {
+    TORCH_INTERNAL_ASSERT(grads.size() == 1);
     auto& grad_output = grads[0];
-    Tensor grad_input_1 =
-        zeros(ctx.data.at("a").shape(), ctx.data.at("a").device());
-    Tensor grad_input_2 =
-        zeros(ctx.data.at("b").shape(), ctx.data.at("b").device());
+    Tensor grad_input_1 = zeros(grad_output.shape(), grad_output.device());
+    Tensor grad_input_2 = zeros(grad_output.shape(), grad_output.device());
     DISPATCH_OP(add_backward_impl, ctx.device, grad_output, grad_input_1,
                 grad_input_2);
+    grad_input_1 =
+        reduce_grad_if_needed(grad_input_1, ctx.data.at("a").shape());
+    grad_input_2 =
+        reduce_grad_if_needed(grad_input_2, ctx.data.at("b").shape());
     return {grad_input_1, grad_input_2};
   }
 };

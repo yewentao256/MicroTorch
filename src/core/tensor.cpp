@@ -12,16 +12,10 @@ namespace microtorch {
 TensorImpl::TensorImpl(const IntArrayRef& shape, Device device,
                        bool requires_grad, const data_t* data, int64_t offset)
     : shape_(shape),
-      stride_(shape_.size()),
+      stride_(calculate_init_stride(shape)),
       storage_(Storage(shape_.numel() * sizeof(data_t), device, data)),
       requires_grad_(requires_grad),
-      offset_(offset) {
-  int64_t stride = 1;
-  for (int i = ndim() - 1; i >= 0; i--) {
-    stride_[i] = stride;
-    stride *= shape_[i];
-  }
-}
+      offset_(offset) {}
 
 TensorImpl::TensorImpl(const Storage& storage, const IntArrayRef& shape,
                        const IntArrayRef& stride, Device device,
@@ -33,21 +27,35 @@ TensorImpl::TensorImpl(const Storage& storage, const IntArrayRef& shape,
       offset_(offset) {}
 
 data_t& TensorImpl::operator[](const IntArrayRef& idxs) {
-  // this is for updating tensor value
-  TORCH_CHECK(ndim() == idxs.size(), "idxs size should equal to tensor's ndim");
+  TORCH_CHECK(ndim() == idxs.size(),
+              "Indices size must equal tensor's dimensions.");
   int64_t offset = offset_;
   for (int64_t i = 0; i < ndim(); i++) {
-    offset += idxs[i] * stride_[i];
+    int64_t index = idxs[i];
+    if (index < 0) {
+      index += shape_[i];
+    }
+    TORCH_CHECK(0 <= index && index < shape_[i], "Index ", idxs[i],
+                " is out of bounds for dimension ", i, " with size ",
+                shape_[i]);
+    offset += index * stride_[i];
   }
   return storage_[offset];
 }
 
 data_t TensorImpl::operator[](const IntArrayRef& idxs) const {
-  // this is for getting value
-  TORCH_CHECK(ndim() == idxs.size(), "idxs size should equal to tensor's ndim");
+  TORCH_CHECK(ndim() == idxs.size(),
+              "Indices size must equal tensor's dimensions.");
   int64_t offset = offset_;
   for (int64_t i = 0; i < ndim(); i++) {
-    offset += idxs[i] * stride_[i];
+    int64_t index = idxs[i];
+    if (index < 0) {
+      index += shape_[i];
+    }
+    TORCH_CHECK(0 <= index && index < shape_[i], "Index ", idxs[i],
+                " is out of bounds for dimension ", i, " with size ",
+                shape_[i]);
+    offset += index * stride_[i];
   }
   return storage_[offset];
 }
