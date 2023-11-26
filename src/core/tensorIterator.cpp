@@ -4,72 +4,72 @@
 
 namespace microtorch {
 
-namespace internal {
+namespace {
 
-// `get_strides` stores the strides of all tensors in order (from low dimension
-// to high dimension) for easier value calculation.
-// For example, `output.stride_bytes` = [4, 256], `input.stride_bytes` = [80, 4]
-// the result is [4, 80, 256, 4]
-inline void get_strides(int64_t* strides, ArrayRef<OperandInfo> operands,
-                        int64_t ndim) {
+// `get_strides_bytes` stores the strides of all tensors in order (from low
+// dimension to high dimension) for easier value calculation. For example,
+// `output.stride_bytes` = [4, 256], `input.stride_bytes` = [80, 4] the result
+// is [4, 80, 256, 4]
+inline void get_strides_bytes(int64_t* strides_bytes,
+                              ArrayRef<OperandInfo> operands, int64_t ndim) {
   for (const auto dim : irange(ndim)) {
     for (const auto arg : irange(operands.size())) {
-      *strides++ = operands[arg].stride_bytes[dim];
+      *strides_bytes++ = operands[arg].stride_bytes[dim];
     }
   }
   // Always at least 2d strides to support 2d for_each loops
   if (ndim < 2) {
-    std::fill_n(strides, (2 - ndim) * operands.size(), 0);
+    std::fill_n(strides_bytes, (2 - ndim) * operands.size(), 0);
   }
 }
 
-inline void get_data_ptrs(char** ptrs, ArrayRef<char*> base,
-                          IntArrayRef strides, IntArrayRef counter) {
-  const int64_t ntensors = base.size();
-  std::copy(base.begin(), base.end(), ptrs);
-  // Calculating the starting pointer of each tensor under the current range
-  // algorithm: sum of the product of the offset and stride byte on all dimensions.
-  for (const auto dim : irange(counter.size())) {
-    int64_t value = counter[dim];
-    for (const auto arg : irange(ntensors)) {
-      ptrs[arg] += value * strides[dim * ntensors + arg];
+// Calculating the starting address of each tensor under the current range
+inline void get_data_ptrs(char** ptrs, int64_t ntensors,
+                          IntArrayRef strides_bytes, IntArrayRef dim_offsets) {
+  // sum of the product of the offset and stride_byte on all dimensions.
+  // For example, `dim_offsets` = [46, 666, 8], `output_stride` (corresponding
+  // to `strides_bytes` dimension = [0,2,4]) = [4, 256, 512000]. The starting
+  // address of output is `base + 46 * 4 + 666 * 256 + 8 * 512000 = base +
+  // 4266680`.
+  for (const auto i : irange(dim_offsets.size())) {
+    int64_t offset = dim_offsets[i];
+    for (const auto t : irange(ntensors)) {
+      ptrs[t] += offset * strides_bytes[i * ntensors + t];
     }
   }
 }
 
-inline void serial_for_each_(IntArrayRef shape, IntArrayRef strides,
-                            PtrArrayRef tensor_ptrs,
-                            typename TensorIterator::loop2d_t loop,
-                            Range range) {
-  char** base_ptrs = tensor_ptrs.vec().data();
+inline void serial_for_each_(IntArrayRef shape, IntArrayRef strides_bytes,
+                             PtrArrayRef tensor_ptrs,
+                             typename TensorIterator::loop2d_t loop,
+                             Range range) {
+  char** tensor_base_ptrs = tensor_ptrs.data();
   auto ntensors = tensor_ptrs.size();
   const auto ndim = shape.size();
   if (ndim <= 1) {
     if (range.begin == 0) {
-      loop(base_ptrs, strides.vec().data(), range.size(), 1);
+      loop(tensor_base_ptrs, strides_bytes.data(), range.size(), 1);
     } else {
-      PtrArrayRef ptrs(ntensors);
-      std::vector<char*> ptrs_vector(base_ptrs, base_ptrs + ntensors);
-      get_data_ptrs(ptrs.vec().data(), ptrs_vector, strides, {range.begin});
-      loop(ptrs.vec().data(), strides.vec().data(), range.size(), 1);
+      PtrArrayRef ptrs(tensor_base_ptrs, tensor_base_ptrs + ntensors);
+      get_data_ptrs(ptrs.data(), ntensors, strides_bytes, {range.begin});
+      loop(ptrs.data(), strides_bytes.data(), range.size(), 1);
     }
   } else {
-    // `ptrs` here stores the addresses that need to be processed in the current batch.
+    // `ptrs` stores the addresses that need to be processed in current batch.
     PtrArrayRef ptrs(ntensors);
     auto counter = DimCounter(shape, range);
-    // DimCounter ensures that every element is processed.
     // `is_done` judges whether the offset is greater than range.end.
     while (!counter.is_done()) {
-      std::vector<char*> ptrs_vector(base_ptrs, base_ptrs + ntensors);
-      get_data_ptrs(ptrs.vec().data(), ptrs_vector, strides, counter.values);
-      auto step = counter.max_2d_step();
-      loop(ptrs.vec().data(), strides.vec().data(), step[0], step[1]);
-      counter.increment(step);
+      std::copy(tensor_base_ptrs, tensor_base_ptrs + ntensors, ptrs.data());
+      get_data_ptrs(ptrs.data(), ntensors, strides_bytes, counter.dim_offsets_);
+      std::array<int64_t, 2> steps = counter.get_max_2d_steps();
+      loop(ptrs.data(), strides_bytes.data(), steps[0], steps[1]);
+      counter.increment(steps[0], steps[1]);
     }
   }
 }
 
-}  // namespace internal
+}  // namespace
 
 void TensorIterator::parallel_reduce(loop2d_t loop) {
   TORCH_CHECK(ntensors() == 2,
@@ -82,9 +82,9 @@ void TensorIterator::parallel_reduce(loop2d_t loop) {
 IntArrayRef TensorIterator::compatible_stride(int64_t element_size) const {
   auto stride = IntArrayRef();
   int64_t next_stride = element_size;
-  for (const auto dim : irange(ndim())) {
+  for (const auto i : irange(ndim())) {
     stride.push_back(next_stride);
-    next_stride *= shape_[dim];
+    next_stride *= shape_[i];
   }
   return stride;
 }
@@ -96,8 +96,8 @@ IntArrayRef TensorIterator::invert_perm(IntArrayRef input) const {
   TORCH_CHECK(input.size() == perm_.size(), "input.size() == perm_.size()");
   auto res = IntArrayRef(input.size());  // no initialization needed, every
                                          // value in res should be written to.
-  for (const auto dim : irange(ndim())) {
-    res[perm_[dim]] = input[dim];
+  for (const auto i : irange(ndim())) {
+    res[perm_[i]] = input[i];
   }
   return res;
 }
@@ -155,19 +155,18 @@ void TensorIterator::for_each(TensorIterator::loop2d_t loop,
 
 void TensorIterator::serial_for_each(TensorIterator::loop2d_t loop,
                                      Range range) const {
-  if (range.size() == 0) {
-    return;
-  }
+  if (range.size() == 0) return;
 
-  PtrArrayRef ptrs(ntensors());
-  IntArrayRef strides(ntensors() * (ndim() > 2 ? ndim() : 2));
+  PtrArrayRef tensor_ptrs(ntensors());
+  IntArrayRef strides_bytes(ntensors() * (ndim() > 2 ? ndim() : 2));
 
-  // converts data ptrs to char* type, and stores them in the pointer list.
+  // convert data ptrs to char* type, and store in `tensor_ptrs`.
   std::transform(
-      operands_.begin(), operands_.end(), ptrs.vec().data(),
+      operands_.begin(), operands_.end(), tensor_ptrs.data(),
       [](const OperandInfo& op) { return static_cast<char*>(op.data); });
-  internal::get_strides(strides.vec().data(), operands_, ndim());
-  internal::serial_for_each_(shape_, strides, ptrs, loop, range);
+  // extract op.stride_bytes
+  get_strides_bytes(strides_bytes.data(), operands_, ndim());
+  serial_for_each_(shape_, strides_bytes, tensor_ptrs, loop, range);
 }
 
 bool TensorIterator::is_contiguous() const {
@@ -454,17 +453,15 @@ void TensorIterator::coalesce_dimensions() {
   }
 
   // We can coalesce two adjacent dimensions if:
-  // shape[n] == 1 or shape[n] * stride[n] == stride[n + 1]
-  // Note that all tensors should meet the conditions simultaneously
+  // shape[n] / shape[n+1] == 1 or
+  // shape[n] * stride[n] == stride[n + 1] for all of the tensors
   auto can_coalesce = [&](int64_t dim0, int64_t dim1) {
-    auto shape0 = shape_[dim0];
-    auto shape1 = shape_[dim1];
-    if (shape0 == 1 || shape1 == 1) {
+    if (shape_[dim0] == 1 || shape_[dim1] == 1) {
       return true;
     }
     for (const auto i : irange(ntensors())) {
       auto& stride = operands_[i].stride_bytes;
-      if (shape0 * stride[dim0] != stride[dim1]) {
+      if (shape_[dim0] * stride[dim0] != stride[dim1]) {
         return false;
       }
     }
@@ -479,9 +476,8 @@ void TensorIterator::coalesce_dimensions() {
     }
   };
 
-  // The logic here is dual-pointer, starting from the `prev_dim` pointer,
-  // traversing each dimension afterwards, and trying to coalesce as many
-  // dimensions as possible
+  // Starting from the `prev_dim` pointer, traversing each dimension afterwards,
+  // and trying to coalesce as many dimensions as possible
   int64_t prev_dim = 0;
   for (const auto dim : irange(1, ndim())) {
     if (can_coalesce(prev_dim, dim)) {
@@ -549,60 +545,74 @@ void TensorIterator::configure_output(OperandInfo& op, IntArrayRef sizes,
 }
 
 DimCounter::DimCounter(IntArrayRef shape, Range range)
-    : shape(shape), range(range), values(shape.size()), offset(range.begin) {
-  std::fill(values.begin(), values.end(), 0);
-  if (range.begin == 0) {
-    return;
-  }
+    : shape_(shape),
+      range_(range),
+      dim_offsets_(shape.size()),
+      offset_(range.begin) {
+  std::fill(dim_offsets_.begin(), dim_offsets_.end(), 0);
+  if (range.begin == 0) return;
 
   int64_t linear_offset = range.begin;
-  int64_t ndim = values.size();
-  for (const auto dim : irange(ndim)) {
-    int64_t size = shape[dim];
+  for (const auto i : irange(dim_offsets_.size())) {
+    int64_t size = shape[i];
     if (size > 0) {
-      // linear_offset * stride to calculate the total offset,
-      // in order to directly find the begin location of the current range.
-      values[dim] = linear_offset % size;
+      // calculating the dim_offsets
+      // For example, `range.begin` = 1066670, `shape` = [64, 2000, 10],
+      // Then `dim_offsets_` stores [46, 666, 8].
+      dim_offsets_[i] = linear_offset % size;
       linear_offset /= size;
     }
   }
-  TORCH_CHECK(linear_offset == 0, "linear offset should be 0.");
+  TORCH_INTERNAL_ASSERT(linear_offset == 0);
 }
 
-void DimCounter::increment(const std::array<int64_t, 2>& step) {
-  offset += step[0] * step[1];
-  int64_t ndim = values.size();
-  int64_t overflow = step[0];
-  int64_t i = 0;
-  if (step[1] != 1) {
-    TORCH_CHECK(step[0] == shape[0] && values[0] == 0,
-                "step[0] should == shape[0] && values[0] should == 0.");
-    i = 1;
-    overflow = step[1];
+// Get the steps that should be processed in current batch.
+// Try to fetch the **maximum** range of steps
+std::array<int64_t, 2> DimCounter::get_max_2d_steps() const {
+  // If the offset is already close to end, fetch the remaining data
+  int64_t step0 = std::min(shape_[0] - dim_offsets_[0], range_.end - offset_);
+  int64_t step1 = 1;
+  // eg, range = {1066670, 1280000}, shape = [64, 2000, 10]
+  // offset = 1066670, dim_offsets = [46, 666, 8]
+  // round1:
+  // return {18, 1}, then updates offset to 1066688, dim_offsets = [0, 667, 8]
+  // round2:
+  // return {64, 1333}, updates offset to 1152000, dim_offsets = [0, 0, 9]
+  // round3:
+  // return {64, 2000}, updates offset to 1280000, dim_offsets = [0, 0, 0]
+  if (step0 == shape_[0] && !shape_.empty()) {
+    step1 = std::min(shape_[1] - dim_offsets_[1],
+                     (range_.end - offset_) / shape_[0]);
   }
+  return {step0, step1};
+}
+
+// updates offset and dim_offsets according to the steps we fetched
+void DimCounter::increment(int64_t step0, int64_t step1) {
+  offset_ += step0 * step1;
+  int64_t ndim = dim_offsets_.size();
+  int64_t overflow = step0;
+  int64_t i = 0;
+  if (step1 != 1) {
+    TORCH_INTERNAL_ASSERT(step0 == shape_[0] && dim_offsets_[0] == 0);
+    i = 1;
+    overflow = step1;
+  }
+  // traverse through the dim_offsets, if we can make the dim_offset to 0
+  // do it and add an overflow to next dim_offsets
   for (; i < ndim && overflow > 0; i++) {
-    auto size = shape[i];
-    auto prev = values[i];
-    auto value = prev + overflow;
-    if (value >= size) {
+    auto dim = shape_[i];
+    auto dim_offset = dim_offsets_[i] + overflow;
+    if (dim_offset >= dim) {
       overflow = 1;
-      value -= size;
-      TORCH_CHECK(value < size, "value should < size.");
+      dim_offset -= dim;
+      TORCH_INTERNAL_ASSERT(dim_offset < dim);
     } else {
       overflow = 0;
     }
-    values[i] = value;
+    dim_offsets_[i] = dim_offset;
   }
-  TORCH_CHECK(overflow == 0 || overflow == 1, "overflow should == 0 or 1.");
-}
-
-std::array<int64_t, 2> DimCounter::max_2d_step() const {
-  int64_t step0 = std::min(shape[0] - values[0], range.end - offset);
-  int64_t step1 = 1;
-  if (step0 == shape[0] && !shape.empty()) {
-    step1 = std::min(shape[1] - values[1], (range.end - offset) / shape[0]);
-  }
-  return {step0, step1};
+  TORCH_INTERNAL_ASSERT(overflow == 0 || overflow == 1);
 }
 
 }  // namespace microtorch

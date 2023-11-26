@@ -51,20 +51,22 @@ struct OperandInfo {
   Tensor tensor_;
 };
 
+// DimCounter ensures that every element is processed.
 struct DimCounter {
   DimCounter(IntArrayRef shape, Range range);
 
-  void increment(const std::array<int64_t, 2>& step);
-  bool is_done() const { return offset >= range.end; }
-  std::array<int64_t, 2> max_2d_step() const;
+  void increment(int64_t step0, int64_t step1);
+  bool is_done() const { return offset_ >= range_.end; }
+  std::array<int64_t, 2> get_max_2d_steps() const;
 
-  IntArrayRef shape;
+  // the shape of current tensor
+  IntArrayRef shape_;
   // `range` is the range of elements to be processed, like {0, numel()}.
-  Range range;
-  // The offset on each dimension, note that it's the offset of the elements, not stride.
-  IntArrayRef values;
+  Range range_;
+  // The offset on each dimension, will be gradually updates to [0, 0, 0]
+  IntArrayRef dim_offsets_;
   // The offset of the current element being processed.
-  int64_t offset;
+  int64_t offset_;
 };
 
 struct TensorIterator {
@@ -125,7 +127,7 @@ struct TensorIterator {
             data[arg] += outer_strides[arg];
           }
         }
-        loop(data.vec().data(), strides, size0);
+        loop(data.data(), strides, size0);
       }
     };
   }
