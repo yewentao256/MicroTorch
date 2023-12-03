@@ -19,15 +19,16 @@ def test_broadcast() -> None:
     assert t1.grad().equal(microtorch.Tensor([1, 1, 1]))
     assert t2.grad().equal(microtorch.Tensor([3]))
 
-    # shape [2, 2] + [2, 1]
-    t1 = microtorch.ones([2, 2], requires_grad=True)
-    t2 = microtorch.ones([2, 1], requires_grad=True)
+    # shape [3, 2] + [3, 1]
+    t1 = microtorch.ones([3, 2], requires_grad=True)
+    t2 = microtorch.ones([3, 1], requires_grad=True)
     t3 = t1 + t2
-    assert t3.shape() == [2, 2]
+    assert t3.shape() == [3, 2]
     t4 = microtorch.sum(t3)
     t4.backward()
-    assert t1.grad().shape() == [2, 2]
+    assert t1.grad().shape() == [3, 2]
     assert t1.grad()[0, 0] == 1
+    assert t2.grad().shape() == [3, 1]
     assert t2.grad()[0, 0] == t2.grad()[1, 0] == 2
 
 
