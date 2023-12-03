@@ -79,33 +79,10 @@ void TensorIterator::parallel_reduce(loop2d_t loop) {
   // parallel_dim_reduction(*this, loop);
 }
 
-IntArrayRef TensorIterator::compatible_stride(int64_t element_size) const {
-  auto stride = IntArrayRef();
-  int64_t next_stride = element_size;
-  for (const auto i : irange(ndim())) {
-    stride.push_back(next_stride);
-    next_stride *= shape_[i];
-  }
-  return stride;
-}
-
-IntArrayRef TensorIterator::invert_perm(IntArrayRef input) const {
-  // Invert the permutation caused by reorder_dimensions. This is not valid
-  // after coalesce_dimensions is called.
-  TORCH_CHECK(!has_coalesced_dimensions_, "has_coalesced_dimensions_");
-  TORCH_CHECK(input.size() == perm_.size(), "input.size() == perm_.size()");
-  auto res = IntArrayRef(input.size());  // no initialization needed, every
-                                         // value in res should be written to.
-  for (const auto i : irange(ndim())) {
-    res[perm_[i]] = input[i];
-  }
-  return res;
-}
-
 // checks that all tensors are on the same device
 void TensorIterator::check_device() {
   // consider the device of first input as the common device
-  common_device_ = operands_[num_outputs_].optional_device();
+  common_device_ = operands_[num_outputs_].tensor().device();
   for (auto& op : operands_) {
     if (!op.tensor().defined()) {
       TORCH_CHECK(op.is_out, "Found undefined input tensor!");
@@ -115,35 +92,6 @@ void TensorIterator::check_device() {
     TORCH_CHECK(op.tensor().device() == common_device_,
                 "Expected all tensors to be on the same device, but "
                 "found at least two devices.");
-  }
-}
-
-IntArrayRef TensorIterator::get_dim_strides(int64_t dim) const {
-  auto dims = ndim();
-  auto inner_strides = IntArrayRef();
-  for (auto& op : operands_) {
-    inner_strides.push_back(dims == 0 ? 0 : op.stride_bytes[dim]);
-  }
-  return inner_strides;
-}
-
-void TensorIterator::permute_dimensions(IntArrayRef perm) {
-  TORCH_INTERNAL_ASSERT(perm.size() == ndim());
-
-  auto reorder = [perm](IntArrayRef data) {
-    auto res = IntArrayRef(data.size());
-    for (const auto i : irange(perm.size())) {
-      res[i] = data[perm[i]];
-    }
-    return res;
-  };
-
-  // Update shape and strides
-  shape_ = reorder(shape_);
-  for (auto& op : operands_) {
-    if (!op.stride_bytes.empty()) {
-      op.stride_bytes = reorder(op.stride_bytes);
-    }
   }
 }
 
@@ -167,16 +115,6 @@ void TensorIterator::serial_for_each(TensorIterator::loop2d_t loop,
   // extract op.stride_bytes
   get_strides_bytes(strides_bytes.data(), operands_, ndim());
   serial_for_each_(shape_, strides_bytes, tensor_ptrs, loop, range);
-}
-
-bool TensorIterator::is_contiguous() const {
-  if (numel() == 1) {
-    return true;
-  }
-  if (ndim() != 1) {
-    return false;
-  }
-  return has_contiguous_first_dim();
 }
 
 void TensorIterator::mark_outs() {
@@ -289,10 +227,7 @@ void TensorIterator::fast_set_up() {
     configure_output(operands_[i], shape_, {},
                      operands_[i].optional_requires_grad());
   }
-  // coalescing dimensions consists of collapsing dimensions to 1
-  if (ndim() > 1) {
-    has_coalesced_dimensions_ = true;
-  }
+  // coalescing dimensions to 1
   if (ndim() >= 1) {
     shape_[0] = numel();
     shape_.resize(1);
@@ -305,9 +240,9 @@ void TensorIterator::fast_set_up() {
   }
 }
 
-// compute the op's strides (in bytes level, not the original one)
-// eg: a float tensor with shape[2, 3], strides[3, 1] now becomes [12, 4]
-// eg2: a float tensor with shape[1, 3], strides[0, 1] now becomes [0, 4]
+// Compute the op's `stride_bytes`
+// eg: a float tensor with shape[2, 3], strides[3, 1] and we get [12, 4]
+// eg2: a float tensor with shape[1, 3], strides[0, 1] and we get [0, 4]
 void TensorIterator::compute_strides() {
   for (auto& op : operands_) {
     if (op.tensor().defined() && !op.should_resize) {
@@ -333,9 +268,9 @@ void TensorIterator::compute_strides() {
   }
 }
 
-// Sort the dimensions based on strides in ascending order with reduced dims
-// at the front. NOTE: this inverts the order of C-contiguous tensors.
+// Sort the dimensions based on strides in ascending order.
 // strides[0] is the fastest moving dimension instead of strides[ndim - 1].
+// Eg: An input tensor with shape=[3, 2], stride_bytes=[8, 4] -> [4, 8]
 void TensorIterator::reorder_dimensions() {
   perm_.resize(ndim());
   if (ndim() == 1) {
@@ -346,6 +281,7 @@ void TensorIterator::reorder_dimensions() {
   // initialize perm with n-1, n-2, ..., 1, 0
   std::iota(perm_.rbegin(), perm_.rend(), 0);
 
+  // check whether two dims should swap
   // returns 1 if the dim0 should come after dim1, -1 if dim0 should come
   // before dim1, and 0 if the comparison is ambiguous.
   auto should_swap = [&](size_t dim0, size_t dim1) {
@@ -357,29 +293,22 @@ void TensorIterator::reorder_dimensions() {
       int64_t stride0 = operands_[arg].stride_bytes[dim0];
       int64_t stride1 = operands_[arg].stride_bytes[dim1];
       if (is_reduction_ && operands_[arg].is_out) {
-        // move reduced dimensions to the front strides
+        // move reduced dimensions for output to the front strides
         if ((stride0 == 0) != (stride1 == 0)) {
           return stride1 == 0 ? 1 : -1;
         }
       }
-      // move on to the next input if one of the dimensions is broadcasted
+      // move on to the input if one of the dimensions is broadcasted
       if (stride0 == 0 || stride1 == 0) {
         continue;
-        // it is important to return here only with strict comparisons, for
-        // equal strides we try to break the tie later by comparing
-        // corresponding dimensions or if that does not work, moving on to the
-        // next tensor
       } else if (stride0 < stride1) {
         return -1;
       } else if (stride0 > stride1) {
         return 1;
-      } else {  // equal strides, use dimensions themselves as the tie-breaker.
-        // at this point, with zero strides out of the way, we are guaranteed
-        // that operand dimensions are equal to shape_
+      } else {
+        // case when equal strides, use shape to compare
         auto t_dim0 = shape_[dim0];
         auto t_dim1 = shape_[dim1];
-        // return only if dimensions should be swapped, otherwise move on to the
-        // next tensor
         if (t_dim0 > t_dim1) {
           return 1;
         }
@@ -388,7 +317,7 @@ void TensorIterator::reorder_dimensions() {
     return 0;
   };
 
-  // insertion sort with support for ambiguous comparisons
+  // calculate for perm_
   for (const auto i : irange(1, ndim())) {
     int64_t dim1 = i;
     for (int64_t dim0 = i - 1; dim0 >= 0; dim0--) {
@@ -399,44 +328,70 @@ void TensorIterator::reorder_dimensions() {
       } else if (comparison < 0) {
         break;
       }
+      // for ambiguous comparison, skip
     }
   }
 
   // perform re-ordering of shape and strides
-  permute_dimensions(perm_);
+  auto apply_perm = [this](IntArrayRef data) {
+    auto res = IntArrayRef(data.size());
+    for (const auto i : irange(perm_.size())) {
+      res[i] = data[perm_[i]];
+    }
+    return res;
+  };
+
+  // Update shape and strides
+  shape_ = apply_perm(shape_);
+  for (auto& op : operands_) {
+    if (!op.stride_bytes.empty()) {
+      op.stride_bytes = apply_perm(op.stride_bytes);
+    }
+  }
 }
 
 void TensorIterator::allocate_or_resize_outputs() {
+  // Invert the permutation caused by reorder_dimensions.
+  auto invert_perm = [this](IntArrayRef data) {
+    TORCH_INTERNAL_ASSERT(data.size() == perm_.size());
+    auto res = IntArrayRef(data.size());
+    for (const auto i : irange(data.size())) {
+      res[perm_[i]] = data[i];
+    }
+    return res;
+  };
+
   for (const auto i : irange(num_outputs_)) {
     auto& op = operands_[i];
     if (!op.tensor().defined() || op.should_resize) {
-      int64_t element_size = op.tensor().element_size();
-      op.stride_bytes = compatible_stride(element_size);
-      // check if permutation is just an inverted order
-      bool inverted = true;
+      op.init_stride_bytes(shape_);
+      // check if permutation is just an inverted order: contiguous output
+      bool fully_inverted = true;
       for (const auto j : irange(ndim())) {
         if (perm_[j] != ndim() - j - 1) {
-          inverted = false;
+          fully_inverted = false;
           break;
         }
       }
-      auto tensor_shape = invert_perm(shape_);
-      if (inverted) {
-        // can just return contiguous output
-        // it is faster because it avoids allocating 0 size tensor and
-        // resizing and restriding it
-        configure_output(op, tensor_shape, {}, op.optional_requires_grad());
+      // TODO: we may directly record the original shape instead of compute it
+      // again?
+      auto original_shape = invert_perm(shape_);
+      if (fully_inverted) {
+        configure_output(op, original_shape, {}, op.optional_requires_grad());
       } else {
-        auto tensor_stride = invert_perm(op.stride_bytes);
+        auto original_strides = invert_perm(op.stride_bytes);
+        int64_t element_size = op.tensor().element_size();
         for (const auto dim : irange(ndim())) {
-          tensor_stride[dim] /= element_size;
+          original_strides[dim] /= element_size;
         }
-        configure_output(op, tensor_shape, tensor_stride,
+        configure_output(op, original_shape, original_strides,
                          op.optional_requires_grad());
       }
     } else if (op.tensor().defined()) {
       configure_output(op, op.tensor().shape(), {},
                        op.tensor().requires_grad());
+    } else {
+      TORCH_INTERNAL_ASSERT(false);
     }
   }
 }
@@ -499,7 +454,6 @@ void TensorIterator::coalesce_dimensions() {
   for (const auto i : irange(ntensors())) {
     operands_[i].stride_bytes.resize(ndim());
   }
-  has_coalesced_dimensions_ = true;
 }
 
 void TensorIterator::build() {

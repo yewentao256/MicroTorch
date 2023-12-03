@@ -17,15 +17,18 @@ constexpr int64_t GRAIN_SIZE = 32768;
 
 struct OperandInfo {
   OperandInfo() = default;
-  explicit OperandInfo(Tensor&& t) { tensor(std::move(t)); }
+  explicit OperandInfo(Tensor&& t) { tensor_ = std::move(t); }
   explicit OperandInfo(const Tensor& t) { tensor_ = t; }
 
+  // copy construct
   OperandInfo(const OperandInfo&) = default;
   OperandInfo& operator=(const OperandInfo&) = default;
+  // move construct
   OperandInfo(OperandInfo&&) noexcept = default;
   OperandInfo& operator=(OperandInfo&&) noexcept = default;
   ~OperandInfo() = default;
 
+  // Tensor's storage data_ptr
   void* data = nullptr;
 
   // Stride after broadcasting. The stride is in bytes, not number of elements.
@@ -40,11 +43,18 @@ struct OperandInfo {
   // TODO: check this tensor, make sure it doesn't affect the original one
   const Tensor& tensor() const { return tensor_; }
   void tensor(Tensor&& tensor) { tensor_ = std::move(tensor); }
-  Device optional_device() const {
-    return tensor_.defined() ? tensor_.device() : Device("cpu");
-  }
   bool optional_requires_grad() const {
     return tensor_.defined() ? tensor_.requires_grad() : false;
+  }
+
+  // initialize op's stride_bytes with inferred common shape from TensorIterator
+  void init_stride_bytes(const IntArrayRef& shape) {
+    TORCH_CHECK(stride_bytes.size() == 0, "stride_bytes should not be set.");
+    int64_t stride = tensor_.element_size();
+    for (const auto i : irange(shape.size())) {
+      stride_bytes.push_back(stride);
+      stride *= shape[i];
+    }
   }
 
  private:
@@ -78,25 +88,7 @@ struct TensorIterator {
   int64_t noutputs() const { return num_outputs_; }
   int64_t ninputs() const { return ntensors() - noutputs(); }
 
-  // Reducible to 1-dimensional and all operands are contiguous
-  bool is_contiguous() const;
-
-  // Accessors for each operand
-  IntArrayRef strides(int64_t arg) const { return operands_[arg].stride_bytes; }
-  void* data_ptr(int64_t arg) const { return operands_[arg].data; }
-
   const Tensor& tensor(int64_t arg) const { return operands_[arg].tensor(); }
-
-  const Tensor& output(int64_t arg = 0) const {
-    TORCH_CHECK(arg < num_outputs_, "arg < num_outputs_");
-    return tensor(arg);
-  }
-
-  const Tensor& input(int64_t arg = 0) const {
-    TORCH_CHECK(arg >= 0 && arg < ntensors() - num_outputs_,
-                "arg >= 0 && arg < ntensors() - num_outputs_");
-    return tensor(num_outputs_ + arg);
-  }
 
   TensorIterator& add_output(Tensor& output) {
     TORCH_CHECK(num_inputs_ == 0,
@@ -165,35 +157,6 @@ struct TensorIterator {
   void serial_for_each(loop2d_t loop, Range range) const;
   void parallel_reduce(loop2d_t loop);
 
-  // Create a strides array for a Tensor with shape of this iterator. The
-  // parameter `element_size` specifies the size of Tensor's data type in
-  // bytes (e.g. `4` for `float`)
-  IntArrayRef compatible_stride(int64_t element_size) const;
-
-  // Inverts the re-ordering done by reorder_dimensions. This can only be
-  // called *before* coalesce_dimensions() is called.
-  IntArrayRef invert_perm(IntArrayRef input) const;
-
-  // Helper functions for CPU iteration
-  IntArrayRef get_dim_strides(int64_t dim) const;
-  IntArrayRef get_inner_strides() const { return get_dim_strides(0); }
-
-  const Tensor& maybe_get_output(int64_t output_idx) {
-    return output(output_idx);
-  };
-
-  bool has_contiguous_first_dim() const {
-    if (ndim() == 0) {
-      return true;
-    }
-    for (const auto i : irange(ntensors())) {
-      if (strides(i)[0] != operands_[i].tensor().element_size()) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   void configure_output(OperandInfo& op, IntArrayRef sizes, IntArrayRef strides,
                         bool requires_grad);
 
@@ -213,7 +176,6 @@ struct TensorIterator {
   void compute_common_shape();
   void compute_strides();
   void reorder_dimensions();
-  void permute_dimensions(IntArrayRef perm);
   void check_device();
   void allocate_or_resize_outputs();
   void fast_set_up();
@@ -224,22 +186,12 @@ struct TensorIterator {
   // Records the "computation" shape of the output tensor.
   IntArrayRef shape_;
 
-  // Temporarily records the permutation computed by reorder_dimensions.
-  // This permutation maps the computation output dimension (dim) to
-  // the original true output dimension (perm_[dim]).  It is used by
-  // invert_perm to undo the permutation.  After coalesce_dimensions is
-  // called, the permutation is no longer valid (as, in general, there
-  // is no permutation that will make computation dimensions to
-  // output dimensions); methods that manipulate perm_ are obligated
-  // to test that !has_coalesced_dimensions
+  // Map the computation output shape to the original one.
+  // Note: After `coalesce_dimensions`, the permutation is no longer valid
   IntArrayRef perm_;
 
-  // Has coalesce_dimensions() (or any moral equivalent, e.g., fast_build())
-  // been called?  This is SOLELY used to check validity of perm_.
-  bool has_coalesced_dimensions_ = false;
-
-  // The operands of the TensorIterator: both the inputs and outputs.  The
-  // outputs MUST come first in the operands_ list.
+  // The operands of the TensorIterator
+  // Note: The first operand is the output.
   ArrayRef<OperandInfo> operands_;
   int64_t num_outputs_ = 0;
   int64_t num_inputs_ = 0;
