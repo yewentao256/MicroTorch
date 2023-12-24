@@ -268,9 +268,9 @@ void TensorIterator::compute_strides() {
   }
 }
 
-// Sort the dimensions based on strides in ascending order.
+// Sort the dimensions based on stride_bytes in ascending order.
 // strides[0] is the fastest moving dimension instead of strides[ndim - 1].
-// Eg: An input tensor with shape=[3, 2], stride_bytes=[8, 4] -> [4, 8]
+// Eg: An input tensor with shape=[3, 2] -> [2, 3], stride_bytes=[8, 4] -> [4, 8]
 void TensorIterator::reorder_dimensions() {
   perm_.resize(ndim());
   if (ndim() == 1) {
@@ -350,6 +350,8 @@ void TensorIterator::reorder_dimensions() {
   }
 }
 
+// If the output is not defined or marked `should_resize`, we will use `perm_`
+// to compute the original shape and stride_bytes for it, then `configure_output`
 void TensorIterator::allocate_or_resize_outputs() {
   // Invert the permutation caused by reorder_dimensions.
   auto invert_perm = [this](IntArrayRef data) {
@@ -365,7 +367,8 @@ void TensorIterator::allocate_or_resize_outputs() {
     auto& op = operands_[i];
     if (!op.tensor().defined() || op.should_resize) {
       op.init_stride_bytes(shape_);
-      // check if permutation is just an inverted order: contiguous output
+      // check if permutation is an fully inverted order
+      // for example: contiguous output
       bool fully_inverted = true;
       for (const auto j : irange(ndim())) {
         if (perm_[j] != ndim() - j - 1) {
@@ -423,7 +426,7 @@ void TensorIterator::coalesce_dimensions() {
     return true;
   };
 
-  // replace each operands stride at dim0 with its stride at dim1
+  // replace all of the operand's stride at dim0 with its stride at dim1
   auto replace_stride = [&](int64_t dim0, int64_t dim1) {
     for (const auto i : irange(ntensors())) {
       auto& stride = operands_[i].stride_bytes;
@@ -431,8 +434,8 @@ void TensorIterator::coalesce_dimensions() {
     }
   };
 
-  // Starting from the `prev_dim` pointer, traversing each dimension afterwards,
-  // and trying to coalesce as many dimensions as possible
+  // Starting from the `prev_dim` pointer, traversing each dim afterwards,
+  // trying to coalesce as many dimensions as possible.
   int64_t prev_dim = 0;
   for (const auto dim : irange(1, ndim())) {
     if (can_coalesce(prev_dim, dim)) {
@@ -469,11 +472,11 @@ void TensorIterator::build() {
   if (can_do_fast_setup()) {
     fast_set_up();
   } else {
-    // compute each tensor's stride after broadcasting
+    // computes the stride(stride_bytes) for each tensors
     compute_strides();
-    // re-order dimensions to improve coalescing
+    // re-order tensor's shape and stride, with `stride[0]` as the fastest progression dimension (stride ascending) for coalescing
     reorder_dimensions();
-    // allocate the output tensor if it's not provided
+    // allocate or resize the output tensor if needed
     allocate_or_resize_outputs();
     // coalesce adjacent dimensions when possible
     coalesce_dimensions();

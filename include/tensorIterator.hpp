@@ -89,6 +89,9 @@ struct TensorIterator {
   int64_t ninputs() const { return ntensors() - noutputs(); }
 
   const Tensor& tensor(int64_t arg) const { return operands_[arg].tensor(); }
+  IntArrayRef strides(int64_t arg) const {
+    return operands_[arg].stride_bytes;
+  }
 
   TensorIterator& add_output(Tensor& output) {
     TORCH_CHECK(num_inputs_ == 0,
@@ -169,6 +172,25 @@ struct TensorIterator {
     is_reduction_ = is_reduction;
     return *this;
   }
+
+  bool has_contiguous_first_dim() const {
+    if (ndim() == 0) return true;
+
+    for (const auto i : irange(ntensors())) {
+      if (operands_[i].stride_bytes[0] != tensor(i).element_size()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool is_contiguous() const {
+    if (numel() == 1) return true;
+    if (ndim() != 1) return false;
+    return has_contiguous_first_dim();
+  }
+
+  Device common_device() { return common_device_; }
 
  protected:
   void mark_outs();

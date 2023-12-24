@@ -3,6 +3,7 @@
  * Licensed under the MIT License.
  */
 #include "cuda.hpp"
+#include "loops.cuh"
 #include "ops.hpp"
 
 namespace microtorch {
@@ -22,12 +23,30 @@ __global__ void add_kernel(int64_t n, float *a, float *b, float *out) {
   }
 }
 
+// template <>
+// void add_impl<Cuda>(const Tensor &a, const Tensor &b, Tensor &out) {
+//   int64_t blocks_per_grid = get_blocks_per_grid(out.numel());
+//   add_kernel<<<blocks_per_grid, ThreadsPerBlock>>>(
+//       out.numel(), a.data_ptr(), b.data_ptr(), out.data_ptr());
+//   CUDA_ERROR_CHECK();
+// }
+
+namespace ufunc {
+
+struct AddFunctor {
+  __device__ __inline__ data_t operator()(const data_t a, const data_t b) const {
+    printf("a: %f, b: %f, out: %f\n", a, b, a + b);
+    return a + b;
+  }
+};
+}  // namespace ufunc
+
 template <>
 void add_impl<Cuda>(const Tensor &a, const Tensor &b, Tensor &out) {
-  int64_t blocks_per_grid = get_blocks_per_grid(out.numel());
-  add_kernel<<<blocks_per_grid, ThreadsPerBlock>>>(
-      out.numel(), a.data_ptr(), b.data_ptr(), out.data_ptr());
-  CUDA_ERROR_CHECK();
+  TensorIterator iter;
+  iter.add_output(out).add_input(a).add_input(b).build();
+  gpu_kernel(iter, ufunc::AddFunctor());
+  out = iter.tensor(0);  // TODO: temporily use this, fix this later
 }
 
 __global__ void add_backward_kernel(int64_t n, float *grad_output,

@@ -13,16 +13,12 @@
 #include "exception.hpp"
 #include "funcTraits.hpp"
 #include "irange.hpp"
+#include "load.hpp"
 #include "tensorIterator.hpp"
 
 namespace microtorch {
 
 namespace internal {
-template <typename T>
-struct LoadImpl {
-  static T apply(const void* src) { return *reinterpret_cast<const T*>(src); }
-};
-
 #ifdef USE_CUDA
 
 template <class F, class Tuple, std::size_t... INDEX>
@@ -46,13 +42,7 @@ inline constexpr decltype(auto) apply(F&& f, Tuple&& t) {
 }
 
 #endif
-
 }  // namespace internal
-
-template <typename T>
-T load(const void* src) {
-  return internal::LoadImpl<T>::apply(src);
-}
 
 template <typename traits, std::size_t... INDEX>
 typename traits::ArgsTuple dereference_impl(char* data[],
@@ -72,8 +62,8 @@ typename traits::ArgsTuple dereference(char* data[], const int64_t* strides,
 // SFINAE: Valid when result_type of func_t is not `void`
 template <
     typename func_t,
-    std::enable_if_t<
-        !std::is_void_v<typename FuncTraits<func_t>::result_type>, int> = 0>
+    std::enable_if_t<!std::is_void_v<typename FuncTraits<func_t>::result_type>,
+                     int> = 0>
 static inline void execute_op(char* data[], const int64_t* strides, int64_t i,
                               int64_t n, func_t&& op) {
   using traits = FuncTraits<func_t>;
@@ -88,8 +78,8 @@ static inline void execute_op(char* data[], const int64_t* strides, int64_t i,
 // SFINAE: Valid when result_type of func_t is `void`
 template <
     typename func_t,
-    std::enable_if_t<
-        std::is_void_v<typename FuncTraits<func_t>::result_type>, int> = 0>
+    std::enable_if_t<std::is_void_v<typename FuncTraits<func_t>::result_type>,
+                     int> = 0>
 static inline void execute_op(char* data[], const int64_t* strides, int64_t i,
                               int64_t n, func_t&& op) {
   using traits = FuncTraits<func_t>;
