@@ -4,12 +4,25 @@
  */
 #include "reduceOps.hpp"
 
+#include <bitset>
+
 #include "accumulateType.hpp"
 #include "tensorIterator.hpp"
 #include "utils.hpp"
 #include "vectorized.hpp"
 
 namespace microtorch {
+
+template <typename T>
+T CeilLog2(const T &x) {
+  TORCH_INTERNAL_ASSERT(std::is_integral_v<T>);
+  if (x <= 2) {
+    return 1;
+  }
+  // std::bit_width returns the highest bit location + 1
+  return static_cast<T>(std::bit_width(static_cast<uint64_t>(x) - 1));
+}
+
 template <typename scalar_t>
 struct LoadPolicy {
   static constexpr int64_t memsize() { return sizeof(scalar_t); }
@@ -406,6 +419,56 @@ void cascade_sum(TensorIterator &iter) {
           data, in_strides, out_stride, size0, size1);
     }
   });
+}
+
+inline std::bitset<bitset_size> make_dim_mask(IntArrayRef &dims, int64_t ndim) {
+  std::bitset<bitset_size> mask;
+  if (dims.empty()) {
+    mask = std::bitset<bitset_size>().flip();
+  } else {
+    TORCH_CHECK(ndim <= bitset_size, "only tensors with up to ", bitset_size,
+                " dims are supported");
+    for (const auto i : irange(dims.size())) {
+      size_t dim = dims[i];
+      TORCH_CHECK(!mask[dim], "dim ", dim,
+                  " appears multiple times in the list of dims");
+      mask[dim] = true;
+    }
+  }
+  return mask;
+}
+
+// Infer the actual result Tensor for reduction, new storage is required.
+inline Tensor infer_reduce_tensor(const Tensor &self,
+                                  std::bitset<bitset_size> mask, bool keepdim) {
+  std::vector<int64_t> shape = self.shape().vec();
+  for (int dim = shape.size() - 1; dim >= 0; dim--) {
+    if (mask[dim]) {
+      if (keepdim) {
+        shape[dim] = 1;
+      } else {
+        shape.erase(shape.begin() + dim);
+      }
+    }
+  }
+  return zeros(shape, self.device(), self.requires_grad());
+}
+
+// Build a view tensor for TensorIterator
+inline Tensor view_reduce_result(const Tensor &result, int ndim,
+                                 std::bitset<bitset_size> mask, bool keepdim) {
+  if (keepdim) {
+    return result;
+  }
+  std::vector<int64_t> shape = result.shape().vec();
+  std::vector<int64_t> stride = result.stride().vec();
+  for (const auto i : irange(ndim)) {
+    if (mask[i]) {
+      shape.insert(shape.begin() + i, 1);
+      stride.insert(stride.begin() + i, 0);
+    }
+  }
+  return result.as_strided(shape, stride);
 }
 
 template <>

@@ -23,4 +23,10 @@ void sum_impl<Cuda>(const Tensor &a, Tensor &out) {
   CUDA_ERROR_CHECK();
 }
 
+template <>
+void sum_dim_impl<Cuda>(const Tensor &a, Tensor &out, IntArrayRef &dims,
+                        bool keep_dim) {
+  TORCH_CHECK(false, "TODO: this function is not implemented yet.");
+}
+
 }  // namespace microtorch

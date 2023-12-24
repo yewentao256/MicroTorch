@@ -51,16 +51,6 @@ inline void check_device_shape(const std::vector<Tensor>& inputs) {
   }
 }
 
-template <typename T>
-T CeilLog2(const T& x) {
-  TORCH_INTERNAL_ASSERT(std::is_integral_v<T>);
-  if (x <= 2) {
-    return 1;
-  }
-  // std::bit_width returns the highest bit location + 1
-  return static_cast<T>(std::bit_width(static_cast<uint64_t>(x) - 1));
-}
-
 inline IntArrayRef calculate_init_stride(const IntArrayRef& shape) {
   IntArrayRef strides(shape.size());
   int64_t stride = 1;

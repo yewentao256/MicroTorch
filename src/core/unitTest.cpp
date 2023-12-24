@@ -75,7 +75,6 @@ class TestClass {
   float constMemberFunction(int, double) const { return 1.0; }
 };
 void normalFunction(int) {}
-auto lambdaFunction = []() -> void {};
 
 const char* test_func_traits() {
   // test normal function
@@ -99,6 +98,7 @@ const char* test_func_traits() {
               "Argument type failed.");
 
   // test lambda (const)
+  auto lambdaFunction = []() -> void {};
   using traits4 = FuncTraits<decltype(lambdaFunction)>;
   TORCH_CHECK(traits4::num_args == 0, "Lambda function num_args test failed");
 

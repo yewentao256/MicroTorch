@@ -42,8 +42,16 @@ if(CUDA)
 	set(CUDA_LIB cuda_lib)
     enable_language(CUDA)
     file (GLOB CUDA_FILES "src/cuda/*.cu")
-    set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -Xcompiler -fPIC")
+
+    if(CMAKE_BUILD_TYPE MATCHES Debug)
+        set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -g -G -O0 -Xcompiler -Wall -fPIC --extended-lambda")
+    elseif(CMAKE_BUILD_TYPE MATCHES Release)
+        set(CMAKE_CUDA_FLAGS_RELEASE "${CMAKE_CUDA_FLAGS_RELEASE} -O3 -Xcompiler -Wall -fPIC --extended-lambda")
+    endif()
     add_library(${CUDA_LIB} STATIC ${CUDA_FILES})
+
+    set_property(TARGET ${CUDA_LIB} PROPERTY CUDA_STANDARD 17)
+    set_property(TARGET ${CUDA_LIB} PROPERTY CUDA_STANDARD_REQUIRED ON)
 
     # For including header files
     target_include_directories(${CUDA_LIB} PRIVATE include)
