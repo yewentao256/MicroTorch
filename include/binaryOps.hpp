@@ -9,13 +9,14 @@
 #include "graph.hpp"
 #include "tensor.hpp"
 #include "tensorFactories.hpp"
+#include "tensorIterator.hpp"
 
 namespace microtorch {
 
 // Internal implementation of forward/backward
 // Should NOT be called by the user
 template <typename Device>
-void add_impl(const Tensor& a, const Tensor& b, Tensor& out);
+void add_impl(TensorIterator& iter);
 template <typename Device>
 void add_backward_impl(Tensor& grad_output, Tensor& grad_input_1,
                        Tensor& grad_input_2);

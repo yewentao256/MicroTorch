@@ -39,15 +39,13 @@ std::vector<ArgT> make_arg_list(Args&&... args) {
   return arg_list;
 }
 
-inline void check_device_shape(const std::vector<Tensor>& inputs) {
+inline void check_device(const std::vector<Tensor>& inputs) {
   int64_t len_inputs = inputs.size();
   Device device = inputs[0].device();
   auto shape = inputs[0].shape();
   for (int64_t i = 1; i < len_inputs; i++) {
     TORCH_CHECK(inputs[i].device() == device,
                 "all the tensors should be in the same device.");
-    // TORCH_CHECK(inputs[i].shape() == shape, "size of the tensors should be
-    // the same");
   }
 }
 

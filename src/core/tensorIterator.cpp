@@ -340,12 +340,20 @@ void TensorIterator::reorder_dimensions() {
     }
     return res;
   };
+  // TODO: combine two apply together
+  auto apply_stride_perm = [this](StrideVector data) {
+    auto res = StrideVector(data.size());
+    for (const auto i : irange(perm_.size())) {
+      res[i] = data[perm_[i]];
+    }
+    return res;
+  };
 
   // Update shape and strides
   shape_ = apply_perm(shape_);
   for (auto& op : operands_) {
     if (!op.stride_bytes.empty()) {
-      op.stride_bytes = apply_perm(op.stride_bytes);
+      op.stride_bytes = apply_stride_perm(op.stride_bytes);
     }
   }
 }
@@ -357,6 +365,15 @@ void TensorIterator::allocate_or_resize_outputs() {
   auto invert_perm = [this](IntArrayRef data) {
     TORCH_INTERNAL_ASSERT(data.size() == perm_.size());
     auto res = IntArrayRef(data.size());
+    for (const auto i : irange(data.size())) {
+      res[perm_[i]] = data[i];
+    }
+    return res;
+  };
+  // TODO: combine two invert together
+  auto invert_stride_perm = [this](StrideVector data) {
+    TORCH_INTERNAL_ASSERT(data.size() == perm_.size());
+    auto res = StrideVector(data.size());
     for (const auto i : irange(data.size())) {
       res[perm_[i]] = data[i];
     }
@@ -376,13 +393,12 @@ void TensorIterator::allocate_or_resize_outputs() {
           break;
         }
       }
-      // TODO: we may directly record the original shape instead of compute it
-      // again?
+      // TODO: directly record the original shape instead of compute it again?
       auto original_shape = invert_perm(shape_);
       if (fully_inverted) {
         configure_output(op, original_shape, {}, op.optional_requires_grad());
       } else {
-        auto original_strides = invert_perm(op.stride_bytes);
+        auto original_strides = invert_stride_perm(op.stride_bytes);
         int64_t element_size = op.tensor().element_size();
         for (const auto dim : irange(ndim())) {
           original_strides[dim] /= element_size;
@@ -489,7 +505,7 @@ void TensorIterator::build() {
 
 // Set output when output is not defined or should be resize
 void TensorIterator::configure_output(OperandInfo& op, IntArrayRef sizes,
-                                      IntArrayRef strides, bool requires_grad) {
+                                      StrideVector strides, bool requires_grad) {
   if (!op.tensor().defined()) {
     if (strides.empty()) {
       op.tensor(empty(sizes, common_device_, requires_grad));

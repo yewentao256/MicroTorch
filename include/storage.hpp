@@ -11,10 +11,9 @@
 
 #include "allocator.hpp"
 #include "device.hpp"
+#include "macros.hpp"
 
 namespace microtorch {
-
-using data_t = float;
 
 class Storage {
  public:

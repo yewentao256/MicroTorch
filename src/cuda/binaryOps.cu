@@ -5,48 +5,13 @@
 #include "cuda.hpp"
 #include "loops.cuh"
 #include "ops.hpp"
+#include "functors.hpp"
 
 namespace microtorch {
 
-__global__ void add_kernel(int64_t n, float *a, float *b, float *out) {
-  // one dimension layout
-  // blockDim.x: block size (threads per block)
-  // gridDim.x: grid size (blocks per grid)
-  // blockIdx.x: current block index in grid
-  // threadIdx.x: current thread index in block.
-  // e.g.: blockDim.x = 4, gridDim.x = 4, we have 16 threads in total
-  // index ranging from 0, 1, 2 ... to 13, 14, 15, stride = 16
-  int64_t index = blockIdx.x * blockDim.x + threadIdx.x;
-  int64_t stride = blockDim.x * gridDim.x;
-  for (int64_t i = index; i < n; i += stride) {
-    out[i] = a[i] + b[i];
-  }
-}
-
-// template <>
-// void add_impl<Cuda>(const Tensor &a, const Tensor &b, Tensor &out) {
-//   int64_t blocks_per_grid = get_blocks_per_grid(out.numel());
-//   add_kernel<<<blocks_per_grid, ThreadsPerBlock>>>(
-//       out.numel(), a.data_ptr(), b.data_ptr(), out.data_ptr());
-//   CUDA_ERROR_CHECK();
-// }
-
-namespace ufunc {
-
-struct AddFunctor {
-  __device__ __inline__ data_t operator()(const data_t a, const data_t b) const {
-    printf("a: %f, b: %f, out: %f\n", a, b, a + b);
-    return a + b;
-  }
-};
-}  // namespace ufunc
-
 template <>
-void add_impl<Cuda>(const Tensor &a, const Tensor &b, Tensor &out) {
-  TensorIterator iter;
-  iter.add_output(out).add_input(a).add_input(b).build();
-  gpu_kernel(iter, ufunc::AddFunctor());
-  out = iter.tensor(0);  // TODO: temporily use this, fix this later
+void add_impl<Cuda>(TensorIterator& iter) {
+  gpu_kernel(iter, binaryFunctor::Add());
 }
 
 __global__ void add_backward_kernel(int64_t n, float *grad_output,

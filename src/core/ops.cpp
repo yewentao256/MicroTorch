@@ -82,9 +82,11 @@ struct AddNode : public FunctionNode<AddNode> {
                                      const Tensor& b) {
     ctx.data.emplace("a", a);
     ctx.data.emplace("b", b);
+    TensorIterator iter;
     Tensor out;
-    DISPATCH_OP(add_impl, a.device(), a, b, out);
-    return {out};
+    iter.add_output(out).add_input(a).add_input(b).build();
+    DISPATCH_OP(add_impl, iter.common_device(), iter);
+    return {iter.tensor(0)};
   }
   static std::vector<Tensor> backward(Context& ctx,
                                       std::vector<Tensor>& grads) {
@@ -103,16 +105,18 @@ struct AddNode : public FunctionNode<AddNode> {
 };
 
 Tensor Tensor::operator+(const Tensor& other) {
-  check_device_shape({*this, other});
+  check_device({*this, other});
   return AddNode::forward_and_build_graph(*this, other)[0];
 }
 
 Tensor& Tensor::operator+=(const Tensor& other) {
-  check_device_shape({*this, other});
+  check_device({*this, other});
   TORCH_CHECK(
       !this->requires_grad() || !GradModeController::is_enabled(),
       "Tensor that requires grad is being used in an in-place operation");
-  DISPATCH_OP(add_impl, this->device(), *this, other, *this);
+  TensorIterator iter;
+  iter.add_output(*this).add_input(*this).add_input(other).build();
+  DISPATCH_OP(add_impl, iter.common_device(), iter);
   return *this;
 }
 
@@ -135,12 +139,12 @@ struct SubNode : public FunctionNode<SubNode> {
 };
 
 Tensor Tensor::operator-(const Tensor& other) {
-  check_device_shape({*this, other});
+  check_device({*this, other});
   return SubNode::forward_and_build_graph(*this, other)[0];
 }
 
 Tensor& Tensor::operator-=(const Tensor& other) {
-  check_device_shape({*this, other});
+  check_device({*this, other});
   TORCH_CHECK(
       !this->requires_grad() || !GradModeController::is_enabled(),
       "Tensor that requires grad is being used in an in-place operation");
@@ -171,11 +175,11 @@ struct MulNode : public FunctionNode<MulNode> {
 };
 
 Tensor Tensor::operator*(const Tensor& other) {
-  check_device_shape({*this, other});
+  check_device({*this, other});
   return MulNode::forward_and_build_graph(*this, other)[0];
 }
 Tensor& Tensor::operator*=(const Tensor& other) {
-  check_device_shape({*this, other});
+  check_device({*this, other});
   TORCH_CHECK(
       !this->requires_grad() || !GradModeController::is_enabled(),
       "Tensor that requires grad is being used in an in-place operation");
@@ -237,11 +241,11 @@ struct DivNode : public FunctionNode<DivNode> {
 };
 
 Tensor Tensor::operator/(const Tensor& other) {
-  check_device_shape({*this, other});
+  check_device({*this, other});
   return DivNode::forward_and_build_graph(*this, other)[0];
 }
 Tensor& Tensor::operator/=(const Tensor& other) {
-  check_device_shape({*this, other});
+  check_device({*this, other});
   TORCH_CHECK(
       !this->requires_grad() || !GradModeController::is_enabled(),
       "Tensor that requires grad is being used in an in-place operation");

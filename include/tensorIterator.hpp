@@ -6,14 +6,18 @@
 #include <algorithm>
 
 #include "array.hpp"
+#include "arrayRef.hpp"
 #include "exception.hpp"
 #include "funcRef.hpp"
 #include "irange.hpp"
+#include "smallVector.hpp"
 #include "tensor.hpp"
 
 namespace microtorch {
 
 constexpr int64_t GRAIN_SIZE = 32768;
+using StrideVector = SmallVector<int64_t, 6>;
+using DimVector = SmallVector<int64_t, 6>;
 
 struct OperandInfo {
   OperandInfo() = default;
@@ -32,7 +36,7 @@ struct OperandInfo {
   void* data = nullptr;
 
   // Stride after broadcasting. The stride is in bytes, not number of elements.
-  IntArrayRef stride_bytes;
+  StrideVector stride_bytes;
   bool is_out = false;
   bool should_resize = false;
   bool is_in_out = false;
@@ -89,7 +93,7 @@ struct TensorIterator {
   int64_t ninputs() const { return ntensors() - noutputs(); }
 
   const Tensor& tensor(int64_t arg) const { return operands_[arg].tensor(); }
-  IntArrayRef strides(int64_t arg) const {
+  const StrideVector& strides(int64_t arg) const {
     return operands_[arg].stride_bytes;
   }
 
@@ -160,8 +164,8 @@ struct TensorIterator {
   void serial_for_each(loop2d_t loop, Range range) const;
   void parallel_reduce(loop2d_t loop);
 
-  void configure_output(OperandInfo& op, IntArrayRef sizes, IntArrayRef strides,
-                        bool requires_grad);
+  void configure_output(OperandInfo& op, IntArrayRef sizes,
+                        StrideVector strides, bool requires_grad);
 
   // set properties
   TensorIterator& resize_outs(bool resize_outs) {
