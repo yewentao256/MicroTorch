@@ -14,6 +14,8 @@ def test_cuda() -> None:
     assert t.shape() == [10, 20]
 
     a = microtorch.ones(5).cuda()
+    a += 1
+    assert a[2] == 2    # inplace add
     b = microtorch.Tensor([1, 2, 3, 4, 5], device='cuda')
 
     a.fill_(3)  # fill_

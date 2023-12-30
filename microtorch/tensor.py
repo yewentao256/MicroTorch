@@ -42,12 +42,12 @@ class Tensor(_microtorch.Tensor):
     def __add__(self, other: Union[Tensor, int, float]) -> Tensor:
         if isinstance(other, Tensor):
             return Tensor(super().__add__(other))
-        return Tensor(super().__add__(Tensor(other)))
+        return Tensor(super().__add__(Tensor(other, device=self.device())))
 
     def __sub__(self, other: Union[Tensor, int, float]) -> Tensor:
         if isinstance(other, Tensor):
             return Tensor(super().__sub__(other))
-        return Tensor(super().__sub__(Tensor(other)))
+        return Tensor(super().__sub__(Tensor(other, device=self.device())))
 
     def __mul__(self, other: Union[Tensor, int, float]) -> Tensor:
         return Tensor(super().__mul__(other))
@@ -55,17 +55,17 @@ class Tensor(_microtorch.Tensor):
     def __truediv__(self, other: Union[Tensor, int, float]) -> Tensor:
         if isinstance(other, Tensor):
             return Tensor(super().__truediv__(other))
-        return Tensor(super().__truediv__(Tensor(other)))
+        return Tensor(super().__truediv__(Tensor(other, device=self.device())))
 
     def __iadd__(self, other: Union[Tensor, int, float]) -> Tensor:
         if isinstance(other, Tensor):
             return Tensor(super().__iadd__(other))
-        return Tensor(super().__iadd__(Tensor(other)))
+        return Tensor(super().__iadd__(Tensor(other, device=self.device())))
 
     def __isub__(self, other: Union[Tensor, int, float]) -> Tensor:
         if isinstance(other, Tensor):
             return Tensor(super().__isub__(other))
-        return Tensor(super().__isub__(Tensor(other)))
+        return Tensor(super().__isub__(Tensor(other, device=self.device())))
 
     def __imul__(self, other: Union[Tensor, int, float]) -> Tensor:
         return Tensor(super().__imul__(other))
@@ -73,7 +73,7 @@ class Tensor(_microtorch.Tensor):
     def __itruediv__(self, other: Union[Tensor, int, float]) -> Tensor:
         if isinstance(other, Tensor):
             return Tensor(super().__itruediv__(other))
-        return Tensor(super().__itruediv__(Tensor(other)))
+        return Tensor(super().__itruediv__(Tensor(other, device=self.device())))
 
     def __radd__(self, other: Union[Tensor, int, float]) -> Tensor:
         return self + other
