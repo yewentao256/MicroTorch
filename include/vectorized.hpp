@@ -14,7 +14,11 @@ constexpr int vectorWidth = 32;
 template <class T>
 struct Vectorized {
  private:
+  #ifdef _MSC_VER
+  __declspec(align(32)) T values[vectorWidth / sizeof(T)];
+  #else
   __attribute__((aligned(32))) T values[vectorWidth / sizeof(T)];
+  #endif
 
  public:
   using value_type = T;

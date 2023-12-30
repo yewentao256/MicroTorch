@@ -3,8 +3,10 @@
  * Licensed under the MIT License.
  */
 #pragma once
+#ifndef _WIN32
 #include <execinfo.h>
 #include <unistd.h>
+#endif
 
 #include <exception>
 #include <iostream>
@@ -25,9 +27,12 @@ void printTemplate(std::ostringstream& oss, const T& value,
   printTemplate(oss, args...);
 }
 
+#ifndef _WIN32
+#define FUNCTION_NAME __PRETTY_FUNCTION__
 constexpr int MaxStackFrames = 128;
 
-inline void printStackTrace(std::ostringstream& oss, int skip = 1, int maxFramesToPrint = 10) {
+inline void printStackTrace(std::ostringstream& oss, int skip = 1,
+                            int maxFramesToPrint = 10) {
   void* callstack[MaxStackFrames];
   int nFrames = backtrace(callstack, MaxStackFrames);
   char** symbols = backtrace_symbols(callstack, nFrames);
@@ -40,6 +45,12 @@ inline void printStackTrace(std::ostringstream& oss, int skip = 1, int maxFrames
 
   free(symbols);
 }
+#else
+#define FUNCTION_NAME __FUNCTION__
+// Do nothing for windows
+inline void printStackTrace(std::ostringstream& oss, int skip = 1,
+                            int maxFramesToPrint = 10) {};
+#endif
 
 #define TORCH_CHECK(cond, ...)                                          \
   do {                                                                  \
@@ -47,7 +58,7 @@ inline void printStackTrace(std::ostringstream& oss, int skip = 1, int maxFrames
       std::ostringstream oss;                                           \
       printStackTrace(oss, 1);                                          \
       oss << "Assertion failed: " << #cond << " at " << __FILE__ << ":" \
-          << __LINE__ << " in " << __PRETTY_FUNCTION__ << "\n";         \
+          << __LINE__ << " in " << FUNCTION_NAME << "\n";         \
       oss << "Additional Information: ";                                \
       printTemplate(oss, __VA_ARGS__);                                  \
       throw std::runtime_error(oss.str());                              \
@@ -60,7 +71,7 @@ inline void printStackTrace(std::ostringstream& oss, int skip = 1, int maxFrames
       std::ostringstream oss;                                                 \
       printStackTrace(oss, 1);                                                \
       oss << "INTERNAL ASSERT FAILED: " << #cond << " at " << __FILE__ << ":" \
-          << __LINE__ << " in " << __PRETTY_FUNCTION__ << "\n";               \
+          << __LINE__ << " in " << FUNCTION_NAME << "\n";               \
       oss << "Please report a bug to MicroTorch.\n";                          \
       throw std::runtime_error(oss.str());                                    \
     }                                                                         \
