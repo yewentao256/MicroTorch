@@ -98,7 +98,6 @@ struct IntDivider<unsigned int> {
   IntDivider(unsigned int d) : divisor(d) {
     TORCH_INTERNAL_ASSERT(divisor >= 1 && divisor <= INT32_MAX);
 
-    // TODO: gcc/clang has __builtin_clz() but it's not portable.
     for (shift = 0; shift < 32; shift++)
       if ((1U << shift) >= divisor) break;
 

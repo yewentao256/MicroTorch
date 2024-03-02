@@ -36,11 +36,12 @@ Build MicroTorch:
 
 ```bash
 pip install .
-pip install . -v        # -v可以看到安装过程中更多信息
+pip install . -v        # -v 可以看到安装过程中更多信息
+pip install . -e        # -e 可编辑模式安装，直接链接源码
 DEBUG=1 pip install .   # DEBUG环境变量编译debug版本
 CUDA=1 pip install .    # 编译CUDA版本
 
-DEBUG=1 CUDA=1 pip install . -v
+DEBUG=1 CUDA=1 pip install -e . -v
 ```
 
 ## 示例程序

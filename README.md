@@ -37,10 +37,11 @@ Build MicroTorch:
 ```bash
 pip install .
 pip install . -v        # -v provides more details during installation
+pip install . -e        # -e editable install, the source code will be linked
 DEBUG=1 pip install .   # Compile the DEBUG version
 CUDA=1 pip install .    # Compile the CUDA version
 
-DEBUG=1 CUDA=1 pip install . -v
+DEBUG=1 CUDA=1 pip install -e . -v
 ```
 
 ## Sample Program

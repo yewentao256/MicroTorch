@@ -2,10 +2,11 @@
  * Copyright (c) 2022-2023 yewentao
  * Licensed under the MIT License.
  */
-
 #pragma once
 
 #ifdef USE_CUDA
+
+#include <cstdint>
 #define HOST_DEVICE __device__ __host__
 #define INLINE __inline__
 

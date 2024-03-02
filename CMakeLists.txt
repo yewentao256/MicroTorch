@@ -62,6 +62,8 @@ if(CUDA)
 
     # USE_CUDA micro
     target_compile_definitions(${MICROTORCH} PRIVATE USE_CUDA)
+    target_compile_definitions(${CUDA_LIB} PRIVATE USE_CUDA)
+
 endif()
 
 
