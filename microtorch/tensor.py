@@ -39,6 +39,9 @@ class Tensor(_microtorch.Tensor):
         else:
             super().__setitem__((index, ), value)
 
+    def __neg__(self) -> Tensor:
+        return Tensor(super().__neg__())
+
     def __add__(self, other: Union[Tensor, int, float]) -> Tensor:
         if isinstance(other, Tensor):
             return Tensor(super().__add__(other))

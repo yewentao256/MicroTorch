@@ -26,6 +26,22 @@ def test_autograd() -> None:
     zz.backward()        # z' = dz/dy * dy/dx = 2 * 2 = 4
     assert x.grad()[0] == 6    # 6 = 4+2
 
+    x.zero_grad()
+
+    # Test negation
+    w = -x
+    assert w[0] == -2.0  # w = -x
+
+    w.backward()
+    # dw/dx = -1
+    assert x.grad()[0] == -1.0
+
+    # Chain rule with negation
+    ww = 3 * w
+    assert ww[0] == -6.0
+    ww.backward()  # ww' = d(-3x)/dx = -3
+    assert x.grad()[0] == -4.0  # -1 (previous grad) + -3 (new grad) = -4
+
 
 def test_autograd_2() -> None:
     x = Tensor([3.0], requires_grad=True)

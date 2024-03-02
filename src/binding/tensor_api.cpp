@@ -69,6 +69,8 @@ void export_tensor_class(py::module &m) {
            })
       .def("__eq__",
            [](Tensor &self, const Tensor &other) { return self == other; })
+      .def(
+          "__neg__", [](Tensor &t) { return -t; }, py::is_operator())
 
       // properties
       .def_property(

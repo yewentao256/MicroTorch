@@ -51,6 +51,9 @@ def test_tensor_one_dimension() -> None:
     assert t4.equal(microtorch.Tensor([0, 4.5, 0]))
     assert t4[1] == 4.5
 
+    t5 = -t4    # neg
+    assert t5[1] == -4.5
+
     # device
     assert t4.device() == "cpu"
 

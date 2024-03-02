@@ -11,6 +11,9 @@
 namespace microtorch {
 
 void backward(Tensor loss) {
+  if (!GradModeController::is_enabled()) {
+    return;
+  }
   // for graph traversal
   std::vector<std::shared_ptr<Node>> node_stack;
 
