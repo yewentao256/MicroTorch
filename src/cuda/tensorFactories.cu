@@ -5,6 +5,8 @@
 #include <curand_kernel.h>
 
 #include "cuda.hpp"
+#include "functors.hpp"
+#include "loops.cuh"
 #include "ops.hpp"
 
 namespace microtorch {
@@ -24,40 +26,9 @@ void fill_impl<Cuda>(Tensor &self, const data_t value) {
   CUDA_ERROR_CHECK();
 }
 
-__global__ void clone_kernel(int64_t n, const float *a, float *out) {
-  for (int64_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n;
-       i += blockDim.x * gridDim.x) {
-    out[i] = a[i];
-  }
-}
-
 template <>
-void clone_impl<Cuda>(const Tensor &a, Tensor &out) {
-  float *a_ptr = a.data_ptr();
-  float *out_ptr = out.data_ptr();
-
-  int64_t blocks_per_grid = get_blocks_per_grid(a.numel());
-  clone_kernel<<<blocks_per_grid, ThreadsPerBlock>>>(a.numel(), a_ptr, out_ptr);
-  CUDA_ERROR_CHECK();
-}
-
-__global__ void clone_backward_kernel(int64_t n, const float *grad_output_ptr,
-                                      float *grad_input_ptr) {
-  for (int64_t i = blockIdx.x * blockDim.x + threadIdx.x; i < n;
-       i += blockDim.x * gridDim.x) {
-    grad_input_ptr[i] = grad_output_ptr[i];
-  }
-}
-
-template <>
-void clone_backward_impl<Cuda>(const Tensor &grad_output, Tensor &grad_input) {
-  float *grad_output_ptr = grad_output.data_ptr();
-  float *grad_input_ptr = grad_input.data_ptr();
-
-  int64_t blocks_per_grid = get_blocks_per_grid(grad_output.numel());
-  clone_backward_kernel<<<blocks_per_grid, ThreadsPerBlock>>>(
-      grad_output.numel(), grad_output_ptr, grad_input_ptr);
-  CUDA_ERROR_CHECK();
+void clone_impl<Cuda>(TensorIterator &iter) {
+  gpu_kernel(iter, binaryFunctor::Clone());
 }
 
 __global__ void rand_kernel(float *data, int numel) {

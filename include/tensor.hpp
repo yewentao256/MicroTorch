@@ -120,20 +120,21 @@ struct Tensor {
     impl_->set_requires_grad(requires_grad);
   }
   Tensor& zero_();
-  Tensor& fill_(data_t value);
+  Tensor& fill_(const data_t value);
   Tensor square();
   bool equal(const Tensor other) const;
 
   // overwrite ops
-  Tensor operator+(const Tensor& other);
+  Tensor operator-() const;
+  Tensor operator+(const Tensor& other) const;
   Tensor& operator+=(const Tensor& other);
-  Tensor operator-(const Tensor& other);
+  Tensor operator-(const Tensor& other) const;
   Tensor& operator-=(const Tensor& other);
-  Tensor operator*(const Tensor& other);
-  Tensor operator*(const data_t other);
+  Tensor operator*(const Tensor& other) const;
+  Tensor operator*(const data_t other) const;
   Tensor& operator*=(const Tensor& other);
   Tensor& operator*=(const data_t other);
-  Tensor operator/(const Tensor& other);
+  Tensor operator/(const Tensor& other) const;
   Tensor& operator/=(const Tensor& other);
   Tensor& operator=(const Tensor& other);
   Tensor operator==(const Tensor& other) const;

@@ -27,8 +27,10 @@ TensorImpl::TensorImpl(const Storage& storage, const IntArrayRef& shape,
       offset_(offset) {}
 
 data_t& TensorImpl::operator[](const IntArrayRef& idxs) {
-  TORCH_CHECK(ndim() == idxs.size(),
-              "Indices size must equal tensor's dimensions.");
+  TORCH_CHECK(
+      ndim() == idxs.size(),
+      "Indices size must equal tensor's dimensions. Expect indices to be ndim ",
+      ndim(), ", but got ", idxs.size());
   int64_t offset = offset_;
   for (int64_t i = 0; i < ndim(); i++) {
     int64_t index = idxs[i];
@@ -150,7 +152,7 @@ bool Tensor::equal(const Tensor other) const {
          static_cast<int64_t>(microtorch::sum(*this == other).item());
 }
 
-Tensor& Tensor::fill_(data_t value) {
+Tensor& Tensor::fill_(const data_t value) {
   fill_scalar(*this, value);
   return *this;
 }

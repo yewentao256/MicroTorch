@@ -44,7 +44,6 @@ struct OperandInfo {
   // The tensor operand. Note that the strides, data pointer, and
   // other attributes may differ due to dimension reordering and
   // coalescing.
-  // TODO: check this tensor, make sure it doesn't affect the original one
   const Tensor& tensor() const { return tensor_; }
   void tensor(Tensor&& tensor) { tensor_ = std::move(tensor); }
   bool optional_requires_grad() const {

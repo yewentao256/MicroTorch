@@ -4,4 +4,15 @@
  */
 #include "unaryOps.hpp"
 
-namespace microtorch {}  // namespace microtorch
+#include "loops.hpp"
+#include "tensorIterator.hpp"
+#include "functors.hpp"
+
+namespace microtorch {
+
+template <>
+void neg_impl<Host>(TensorIterator& iter) {
+  cpu_kernel(iter, binaryFunctor::Neg());
+}
+
+}  // namespace microtorch

@@ -4,7 +4,11 @@
  */
 #include "tensorFactories.hpp"
 
+#include "functors.hpp"
+#include "loops.hpp"
 #include "tensor.hpp"
+#include "tensorIterator.hpp"
+
 namespace microtorch {
 
 template <>
@@ -16,22 +20,8 @@ void fill_impl<Host>(Tensor& self, const data_t value) {
 }
 
 template <>
-void clone_impl<Host>(const Tensor& a, Tensor& out) {
-  auto out_ptr = out.data_ptr();
-  auto a_ptr = a.data_ptr();
-  for (int64_t i = 0; i < a.numel(); i++) {
-    out_ptr[i] = a_ptr[i];
-  }
-}
-
-template <>
-void clone_backward_impl<Host>(const Tensor& grad_output, Tensor& grad_input) {
-  auto grad_output_ptr = grad_output.data_ptr();
-  auto grad_input_ptr = grad_input.data_ptr();
-  for (int64_t i = 0; i < grad_input.numel(); i++) {
-    // y = a, y'(a) = 1 * grad
-    grad_input_ptr[i] = grad_output_ptr[i];
-  }
+void clone_impl<Host>(TensorIterator& iter) {
+  cpu_kernel(iter, binaryFunctor::Clone());
 }
 
 template <>

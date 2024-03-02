@@ -7,6 +7,7 @@
 #include "context.hpp"
 #include "engine.hpp"
 #include "tensor.hpp"
+#include "tensorIterator.hpp"
 
 namespace microtorch {
 
@@ -54,8 +55,6 @@ inline Tensor rand(IntArrayRef size, const std::string& device,
 }
 
 template <typename Device>
-void clone_impl(const Tensor& a, Tensor& out);
-template <typename Device>
-void clone_backward_impl(const Tensor& grad_output, Tensor& grad_input);
+void clone_impl(TensorIterator& iter);
 
 }  // namespace microtorch

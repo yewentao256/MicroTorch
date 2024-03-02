@@ -49,6 +49,9 @@ std::ostream& operator<<(std::ostream& stream, const Tensor t) {
   return print_with_size(stream, t, 20);
 }
 
+// Reduce grad, matching the target shape
+// This is needed in cases like broadcast, Tensor1([1, 2, 3]) + Tensor2([1]),
+// The grad of Tensor2 should be [3] instead of [1, 1, 1]
 Tensor reduce_grad_if_needed(Tensor t, const IntArrayRef& target_shape) {
   auto shape = t.shape();
   if (shape == target_shape) {
@@ -77,10 +80,15 @@ Tensor reduce_grad_if_needed(Tensor t, const IntArrayRef& target_shape) {
   return t;
 }
 
+inline Tensor wrap_scalar_to_tensor(const data_t scalar, const Device& device) {
+  return empty({}, device, false).fill_(scalar);
+}
+
 struct AddNode : public FunctionNode<AddNode> {
   static std::vector<Tensor> forward(Context& ctx, const Tensor& a,
                                      const Tensor& b) {
-    ctx.data.emplace("a", a);
+    ctx.data.emplace(
+        "a", a);  // TODO: maybe we can save as a class instance variable
     ctx.data.emplace("b", b);
     TensorIterator iter;
     Tensor out;
@@ -90,21 +98,18 @@ struct AddNode : public FunctionNode<AddNode> {
   }
   static std::vector<Tensor> backward(Context& ctx,
                                       std::vector<Tensor>& grads) {
+    // y = a + b ..., y'(a) = y'(b) = 1 * grad
     TORCH_INTERNAL_ASSERT(grads.size() == 1);
-    auto& grad_output = grads[0];
-    Tensor grad_input_1 = zeros(grad_output.shape(), grad_output.device());
-    Tensor grad_input_2 = zeros(grad_output.shape(), grad_output.device());
-    DISPATCH_OP(add_backward_impl, ctx.device, grad_output, grad_input_1,
-                grad_input_2);
-    grad_input_1 =
-        reduce_grad_if_needed(grad_input_1, ctx.data.at("a").shape());
-    grad_input_2 =
-        reduce_grad_if_needed(grad_input_2, ctx.data.at("b").shape());
+    Tensor grad_input_1 =
+        reduce_grad_if_needed(grads[0].clone(), ctx.data.at("a").shape());
+    Tensor grad_input_2 =
+        reduce_grad_if_needed(grads[0].clone(), ctx.data.at("b").shape());
     return {grad_input_1, grad_input_2};
   }
 };
 
-Tensor Tensor::operator+(const Tensor& other) {
+Tensor Tensor::operator+(const Tensor& other) const {
+  // TODO: there is no need checking device here, leave it to TensorIterator
   check_device({*this, other});
   return AddNode::forward_and_build_graph(*this, other)[0];
 }
@@ -123,22 +128,27 @@ Tensor& Tensor::operator+=(const Tensor& other) {
 struct SubNode : public FunctionNode<SubNode> {
   static std::vector<Tensor> forward(Context& ctx, const Tensor& a,
                                      const Tensor& b) {
-    Tensor out = zeros(a.shape(), a.device(), a.requires_grad());
-    DISPATCH_OP(sub_impl, a.device(), a, b, out);
-    return {out};
+    ctx.data.emplace("a", a);
+    ctx.data.emplace("b", b);
+    TensorIterator iter;
+    Tensor out;
+    iter.add_output(out).add_input(a).add_input(b).build();
+    DISPATCH_OP(sub_impl, iter.common_device(), iter);
+    return {iter.tensor(0)};
   }
   static std::vector<Tensor> backward(Context& ctx,
                                       std::vector<Tensor>& grads) {
-    auto& grad_output = grads[0];
-    Tensor grad_input_1 = zeros(grad_output.shape(), grad_output.device());
-    Tensor grad_input_2 = zeros(grad_output.shape(), grad_output.device());
-    DISPATCH_OP(sub_backward_impl, ctx.device, grad_output, grad_input_1,
-                grad_input_2);
+    TORCH_INTERNAL_ASSERT(grads.size() == 1);
+    // y = a - b ..., y'(a) = 1 * grad, y'(b) = -1 * grad
+    Tensor grad_input_1 =
+        reduce_grad_if_needed(grads[0].clone(), ctx.data.at("a").shape());
+    Tensor grad_input_2 =
+        reduce_grad_if_needed(-grads[0], ctx.data.at("b").shape());
     return {grad_input_1, grad_input_2};
   }
 };
 
-Tensor Tensor::operator-(const Tensor& other) {
+Tensor Tensor::operator-(const Tensor& other) const {
   check_device({*this, other});
   return SubNode::forward_and_build_graph(*this, other)[0];
 }
@@ -148,33 +158,37 @@ Tensor& Tensor::operator-=(const Tensor& other) {
   TORCH_CHECK(
       !this->requires_grad() || !GradModeController::is_enabled(),
       "Tensor that requires grad is being used in an in-place operation");
-  DISPATCH_OP(sub_impl, this->device(), *this, other, *this);
+  TensorIterator iter;
+  iter.add_output(*this).add_input(*this).add_input(other).build();
+  DISPATCH_OP(sub_impl, iter.common_device(), iter);
   return *this;
 }
 
 struct MulNode : public FunctionNode<MulNode> {
   static std::vector<Tensor> forward(Context& ctx, const Tensor& a,
                                      const Tensor& b) {
-    // save tensor data to context
     ctx.data.emplace("a", a);
     ctx.data.emplace("b", b);
-    Tensor out = zeros(a.shape(), a.device(), a.requires_grad());
-    DISPATCH_OP(mul_impl, a.device(), a, b, out);
-    return {out};
+    TensorIterator iter;
+    Tensor out;
+    iter.add_output(out).add_input(a).add_input(b).build();
+    DISPATCH_OP(mul_impl, iter.common_device(), iter);
+    return {iter.tensor(0)};
   }
 
   static std::vector<Tensor> backward(Context& ctx,
                                       std::vector<Tensor>& grads) {
-    auto& grad_output = grads[0];
-    Tensor grad_input_1 = zeros(grad_output.shape(), grad_output.device());
-    Tensor grad_input_2 = zeros(grad_output.shape(), grad_output.device());
-    DISPATCH_OP(mul_backward_impl, ctx.device, grad_output, grad_input_1,
-                grad_input_2, ctx.data.at("a"), ctx.data.at("b"));
+    TORCH_INTERNAL_ASSERT(grads.size() == 1);
+    // y = a * b ..., y'(a) = b * grad, y'(b) = a * grad
+    Tensor grad_input_1 = reduce_grad_if_needed(grads[0] * ctx.data.at("b"),
+                                                ctx.data.at("a").shape());
+    Tensor grad_input_2 = reduce_grad_if_needed(grads[0] * ctx.data.at("a"),
+                                                ctx.data.at("b").shape());
     return {grad_input_1, grad_input_2};
   }
 };
 
-Tensor Tensor::operator*(const Tensor& other) {
+Tensor Tensor::operator*(const Tensor& other) const {
   check_device({*this, other});
   return MulNode::forward_and_build_graph(*this, other)[0];
 }
@@ -183,30 +197,35 @@ Tensor& Tensor::operator*=(const Tensor& other) {
   TORCH_CHECK(
       !this->requires_grad() || !GradModeController::is_enabled(),
       "Tensor that requires grad is being used in an in-place operation");
-  DISPATCH_OP(mul_impl, this->device(), *this, other, *this);
+  TensorIterator iter;
+  iter.add_output(*this).add_input(*this).add_input(other).build();
+  DISPATCH_OP(mul_impl, iter.common_device(), iter);
   return *this;
 }
 
 struct MulScalarNode : public FunctionNode<MulScalarNode> {
   static std::vector<Tensor> forward(Context& ctx, const Tensor& a,
                                      const data_t b) {
-    ctx.data_scalar.emplace("b", b);
-    Tensor out = zeros(a.shape(), a.device(), a.requires_grad());
-    DISPATCH_OP(mul_scalar_impl, a.device(), a, b, out);
-    return {out};
+    ctx.data.emplace("a", a);
+    Tensor b_tensor = wrap_scalar_to_tensor(b, a.device());
+    ctx.data.emplace("b", b_tensor);
+    TensorIterator iter;
+    Tensor out;
+    iter.add_output(out).add_input(a).add_input(b_tensor).build();
+    DISPATCH_OP(mul_impl, iter.common_device(), iter);
+    return {iter.tensor(0)};
   }
 
   static std::vector<Tensor> backward(Context& ctx,
                                       std::vector<Tensor>& grads) {
-    auto& grad_output = grads[0];
-    Tensor grad_input = zeros(grad_output.shape(), grad_output.device());
-    DISPATCH_OP(mul_scalar_backward_impl, ctx.device, grad_output, grad_input,
-                ctx.data_scalar.at("b"));
+    // y = a * b(scalar) ..., y'(a) = b * grad
+    Tensor grad_input = reduce_grad_if_needed(
+        grads[0] * ctx.data.at("b").item(), ctx.data.at("a").shape());
     return {grad_input};
   }
 };
 
-Tensor Tensor::operator*(const data_t other) {
+Tensor Tensor::operator*(const data_t other) const {
   return MulScalarNode::forward_and_build_graph(*this, other)[0];
 }
 
@@ -214,33 +233,40 @@ Tensor& Tensor::operator*=(const data_t other) {
   TORCH_CHECK(
       !this->requires_grad() || !GradModeController::is_enabled(),
       "Tensor that requires grad is being used in an in-place operation");
-  DISPATCH_OP(mul_scalar_impl, this->device(), *this, other, *this);
+  Tensor b_tensor = wrap_scalar_to_tensor(other, this->device());
+  TensorIterator iter;
+  Tensor out;
+  iter.add_output(out).add_input(*this).add_input(b_tensor).build();
+  DISPATCH_OP(mul_impl, iter.common_device(), iter);
   return *this;
 }
 
 struct DivNode : public FunctionNode<DivNode> {
   static std::vector<Tensor> forward(Context& ctx, const Tensor& a,
                                      const Tensor& b) {
-    // save tensor data to context
     ctx.data.emplace("a", a);
     ctx.data.emplace("b", b);
-    Tensor out = zeros(a.shape(), a.device(), a.requires_grad());
-    DISPATCH_OP(div_impl, a.device(), a, b, out);
-    return {out};
+    TensorIterator iter;
+    Tensor out;
+    iter.add_output(out).add_input(a).add_input(b).build();
+    DISPATCH_OP(div_impl, iter.common_device(), iter);
+    return {iter.tensor(0)};
   }
 
   static std::vector<Tensor> backward(Context& ctx,
                                       std::vector<Tensor>& grads) {
-    auto& grad_output = grads[0];
-    Tensor grad_input_1 = zeros(grad_output.shape(), grad_output.device());
-    Tensor grad_input_2 = zeros(grad_output.shape(), grad_output.device());
-    DISPATCH_OP(div_backward_impl, ctx.device, grad_output, grad_input_1,
-                grad_input_2, ctx.data.at("a"), ctx.data.at("b"));
+    // y = a / b, y'(a) = 1 / b * grad, y'(b) = -a * (1/b)^-2 * grad
+    TORCH_INTERNAL_ASSERT(grads.size() == 1);
+    auto& a = ctx.data.at("a");
+    auto& b = ctx.data.at("b");
+    Tensor grad_input_1 = reduce_grad_if_needed(grads[0] / b, a.shape());
+    Tensor grad_input_2 =
+        reduce_grad_if_needed(-grads[0] * a / b / b, b.shape());
     return {grad_input_1, grad_input_2};
   }
 };
 
-Tensor Tensor::operator/(const Tensor& other) {
+Tensor Tensor::operator/(const Tensor& other) const {
   check_device({*this, other});
   return DivNode::forward_and_build_graph(*this, other)[0];
 }
@@ -249,7 +275,9 @@ Tensor& Tensor::operator/=(const Tensor& other) {
   TORCH_CHECK(
       !this->requires_grad() || !GradModeController::is_enabled(),
       "Tensor that requires grad is being used in an in-place operation");
-  DISPATCH_OP(div_impl, this->device(), *this, other, *this);
+  TensorIterator iter;
+  iter.add_output(*this).add_input(*this).add_input(other).build();
+  DISPATCH_OP(div_impl, iter.common_device(), iter);
   return *this;
 }
 
@@ -280,7 +308,6 @@ Tensor sum(const Tensor& a) { return SumNode::forward_and_build_graph(a)[0]; }
 struct SumDimNode : public FunctionNode<SumDimNode> {
   static std::vector<Tensor> forward(Context& ctx, const Tensor& input,
                                      IntArrayRef& dims, bool keep_dim) {
-    // save tensor data to context
     ctx.data.emplace("input", input);
     ctx.data_int.emplace("keep_dim", keep_dim);
     Tensor out;
@@ -307,23 +334,42 @@ Tensor sum_dim(const Tensor& a, IntArrayRef dims, bool keep_dim) {
 
 struct CloneNode : public FunctionNode<CloneNode> {
   static std::vector<Tensor> forward(Context& ctx, const Tensor& input) {
-    Tensor out = zeros(input.shape(), input.device(), input.requires_grad());
-    DISPATCH_OP(clone_impl, input.device(), input, out);
-    return {out};
+    TensorIterator iter;
+    Tensor out;
+    iter.add_output(out).add_input(input).build();
+    DISPATCH_OP(clone_impl, iter.common_device(), iter);
+    return {iter.tensor(0)};
   }
 
   static std::vector<Tensor> backward(Context& ctx,
                                       std::vector<Tensor>& grads) {
-    const Tensor& grad_output = grads[0];
-    // y = a + b + c ..., y'(a) = 1 * grad[0], y'(b) = 1 * grad[1] ...
-    Tensor grad_input = zeros(grad_output.shape(), grad_output.device());
-    DISPATCH_OP(clone_backward_impl, ctx.device, grad_output, grad_input);
-    return {grad_input};
+    // y = a, y'(a) = 1 * grad
+    return grads;
   }
 };
 
 Tensor Tensor::clone() const {
   return CloneNode::forward_and_build_graph(*this)[0];
+}
+
+struct NegNode : public FunctionNode<NegNode> {
+  static std::vector<Tensor> forward(Context& ctx, const Tensor& input) {
+    TensorIterator iter;
+    Tensor out;
+    iter.add_output(out).add_input(input).build();
+    DISPATCH_OP(neg_impl, iter.common_device(), iter);
+    return {iter.tensor(0)};
+  }
+
+  static std::vector<Tensor> backward(Context& ctx,
+                                      std::vector<Tensor>& grads) {
+    // y = -x ..., y'(x) = -1 * grad
+    return {grads[0] * -1};
+  }
+};
+
+Tensor Tensor::operator-() const {
+  return NegNode::forward_and_build_graph(*this)[0];
 }
 
 }  // namespace microtorch

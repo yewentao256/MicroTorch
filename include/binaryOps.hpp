@@ -17,33 +17,15 @@ namespace microtorch {
 // Should NOT be called by the user
 template <typename Device>
 void add_impl(TensorIterator& iter);
-template <typename Device>
-void add_backward_impl(Tensor& grad_output, Tensor& grad_input_1,
-                       Tensor& grad_input_2);
 
 template <typename Device>
-void sub_impl(const Tensor& a, const Tensor& b, Tensor& out);
-template <typename Device>
-void sub_backward_impl(Tensor& grad_output, Tensor& grad_input_1,
-                       Tensor& grad_input_2);
+void sub_impl(TensorIterator& iter);
 
 template <typename Device>
-void mul_impl(const Tensor& a, const Tensor& b, Tensor& out);
-template <typename Device>
-void mul_backward_impl(const Tensor& grad_output, Tensor& grad_input_1,
-                       Tensor& grad_input_2, const Tensor& a, const Tensor& b);
+void mul_impl(TensorIterator& iter);
 
 template <typename Device>
-void mul_scalar_impl(const Tensor& a, const float b, Tensor& out);
-template <typename Device>
-void mul_scalar_backward_impl(const Tensor& grad_output, Tensor& grad_input,
-                              const float b);
-
-template <typename Device>
-void div_impl(const Tensor& a, const Tensor& b, Tensor& out);
-template <typename Device>
-void div_backward_impl(const Tensor& grad_output, Tensor& grad_input_1,
-                       Tensor& grad_input_2, const Tensor& a, const Tensor& b);
+void div_impl(TensorIterator& iter);
 
 template <typename Device>
 void eq_impl(const Tensor& a, const Tensor& b, Tensor& out,
