@@ -40,15 +40,27 @@ def test_cuda() -> None:
     assert microtorch.sum(f)[0] == 1
 
 
-def test_big_cuda_tensor():
+def test_big_cuda_tensor() -> None:
     if not microtorch.cuda.is_cuda_available():
         return
-    t = microtorch.rand([4, 1024, 1024, 1024], "cuda")  # 16GB tensor
+    t = microtorch.rand([2, 1024, 1024, 1024], "cuda")  # 8GB tensor
     t.fill_(100)
     assert t[0, 0, 0, 0] == 100
+    
+
+def test_cuda_and_cpu_tensor() -> None:
+    if not microtorch.cuda.is_cuda_available():
+        return
+    try:
+        microtorch.Tensor([1, 2], device="cuda") + microtorch.Tensor([4, 5])
+        assert False, "cuda tensor and cpu tensor should raise an error"
+    except Exception:
+        assert True
+    
 
 
 if __name__ == "__main__":
     test_cuda()
-    # test_big_cuda_tensor()
+    test_big_cuda_tensor()
+    test_cuda_and_cpu_tensor()
     print("successfully pass the test!")

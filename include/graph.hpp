@@ -127,7 +127,11 @@ struct FunctionNode : public Node {
 struct AccumulateGrad : public Node {
   // Each AccumulateGrad owns a tensor for calculating grad for updating params
   Tensor t;
-  AccumulateGrad(Tensor t) : t(t) { num_input_of_backward = 1; }
+  AccumulateGrad(Tensor t) : t(t) {
+    num_input_of_backward = 1;
+    // TODO: leaf node is handled first to improve efficiency, but error now
+    // sequence_number = INT32_MAX;
+  }
 
   std::vector<Tensor> backward(std::vector<Tensor>& grad_outputs) override {
     TORCH_CHECK(grad_outputs.size() == 1,
