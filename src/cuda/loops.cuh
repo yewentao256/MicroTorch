@@ -155,7 +155,6 @@ struct OffsetCalculator {
 
   HOST_DEVICE offset_type get(uint32_t linear_idx) const {
     offset_type offsets;
-    printf("linear_idx: %d\n", linear_idx);
 
     for (int arg = 0; arg < NARGS; arg++) {
       offsets[arg] = 0;

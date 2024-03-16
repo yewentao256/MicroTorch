@@ -74,8 +74,8 @@ void backward(Tensor loss) {
         if (visited_nodes.find(next_edge->function_node) ==
             visited_nodes.end()) {
           node_stack.push_back(next_edge->function_node);
-          visited_nodes.insert(
-              next_edge->function_node);  // Mark node as visited
+          // Mark node as visited
+          visited_nodes.insert(next_edge->function_node);
         }
       }
     }

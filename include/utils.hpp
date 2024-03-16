@@ -39,16 +39,6 @@ std::vector<ArgT> make_arg_list(Args&&... args) {
   return arg_list;
 }
 
-inline void check_device(const std::vector<Tensor>& inputs) {
-  int64_t len_inputs = inputs.size();
-  Device device = inputs[0].device();
-  auto shape = inputs[0].shape();
-  for (int64_t i = 1; i < len_inputs; i++) {
-    TORCH_CHECK(inputs[i].device() == device,
-                "all the tensors should be in the same device.");
-  }
-}
-
 inline IntArrayRef calculate_init_stride(const IntArrayRef& shape) {
   IntArrayRef strides(shape.size());
   int64_t stride = 1;

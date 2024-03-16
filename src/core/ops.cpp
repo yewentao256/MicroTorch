@@ -109,13 +109,10 @@ struct AddNode : public FunctionNode<AddNode> {
 };
 
 Tensor Tensor::operator+(const Tensor& other) const {
-  // TODO: there is no need checking device here, leave it to TensorIterator
-  check_device({*this, other});
   return AddNode::forward_and_build_graph(*this, other)[0];
 }
 
 Tensor& Tensor::operator+=(const Tensor& other) {
-  check_device({*this, other});
   TORCH_CHECK(
       !this->requires_grad() || !GradModeController::is_enabled(),
       "Tensor that requires grad is being used in an in-place operation");
@@ -149,12 +146,10 @@ struct SubNode : public FunctionNode<SubNode> {
 };
 
 Tensor Tensor::operator-(const Tensor& other) const {
-  check_device({*this, other});
   return SubNode::forward_and_build_graph(*this, other)[0];
 }
 
 Tensor& Tensor::operator-=(const Tensor& other) {
-  check_device({*this, other});
   TORCH_CHECK(
       !this->requires_grad() || !GradModeController::is_enabled(),
       "Tensor that requires grad is being used in an in-place operation");
@@ -189,11 +184,9 @@ struct MulNode : public FunctionNode<MulNode> {
 };
 
 Tensor Tensor::operator*(const Tensor& other) const {
-  check_device({*this, other});
   return MulNode::forward_and_build_graph(*this, other)[0];
 }
 Tensor& Tensor::operator*=(const Tensor& other) {
-  check_device({*this, other});
   TORCH_CHECK(
       !this->requires_grad() || !GradModeController::is_enabled(),
       "Tensor that requires grad is being used in an in-place operation");
@@ -267,11 +260,9 @@ struct DivNode : public FunctionNode<DivNode> {
 };
 
 Tensor Tensor::operator/(const Tensor& other) const {
-  check_device({*this, other});
   return DivNode::forward_and_build_graph(*this, other)[0];
 }
 Tensor& Tensor::operator/=(const Tensor& other) {
-  check_device({*this, other});
   TORCH_CHECK(
       !this->requires_grad() || !GradModeController::is_enabled(),
       "Tensor that requires grad is being used in an in-place operation");
