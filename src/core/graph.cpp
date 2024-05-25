@@ -20,7 +20,11 @@ void backward(Tensor loss) {
   // temp variable for accumulating the gradients
   std::map<std::shared_ptr<Node>, std::vector<Tensor>> grad_map;
 
-  // Set to store nodes that have been added to the stack
+  // Store nodes that have been added to the stack to prevent re-adding them.
+  // A node can have multiple sources of inputs; will this cause a problem?
+  // Since the `sequence_number` ensures the correct execution order, once a
+  // node is marked as visited, all input gradients for this node have been
+  // accumulated, so it will not be used any more.
   std::unordered_set<std::shared_ptr<Node>> visited_nodes;
 
   TORCH_CHECK(loss.numel() == 1, "loss size should equal to 1");

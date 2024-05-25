@@ -129,8 +129,11 @@ struct AccumulateGrad : public Node {
   Tensor t;
   AccumulateGrad(Tensor t) : t(t) {
     num_input_of_backward = 1;
-    // TODO: leaf node is handled first to improve efficiency, but error now
-    // sequence_number = INT32_MAX;
+    // Set the sequence number of AccumulateGrad to INT32_MAX. This
+    // ensures these nodes are handled first during backward, improving sorting
+    // efficiency. As a leaf node, it only receives gradients from other nodes
+    // and does not produce outputs.
+    sequence_number = INT32_MAX;
   }
 
   std::vector<Tensor> backward(std::vector<Tensor>& grad_outputs) override {

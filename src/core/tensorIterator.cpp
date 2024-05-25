@@ -75,8 +75,6 @@ void TensorIterator::parallel_reduce(loop2d_t loop) {
   TORCH_CHECK(ntensors() == 2,
               "parallel_reduce only supports one input and one output");
   serial_for_each(loop, {0, numel()});
-  // TODO: we may support parallel in the future
-  // parallel_dim_reduction(*this, loop);
 }
 
 // checks that all tensors are on the same device
@@ -97,7 +95,6 @@ void TensorIterator::check_device() {
 
 void TensorIterator::for_each(TensorIterator::loop2d_t loop,
                               int64_t grain_size) {
-  // TODO: we may support parallel in the future
   return serial_for_each(loop, {0, numel()});
 }
 

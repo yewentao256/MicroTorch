@@ -424,6 +424,7 @@ void cascade_sum(TensorIterator &iter) {
 inline std::bitset<bitset_size> make_dim_mask(IntArrayRef &dims, int64_t ndim) {
   std::bitset<bitset_size> mask;
   if (dims.empty()) {
+    // all bits 1
     mask = std::bitset<bitset_size>().flip();
   } else {
     TORCH_CHECK(ndim <= bitset_size, "only tensors with up to ", bitset_size,

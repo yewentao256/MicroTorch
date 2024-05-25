@@ -64,11 +64,10 @@ def test_autograd_2() -> None:
     c = a * b       # c = 12 * 7 = 84
     assert c[0] == 84.0
 
-    c.backward()    # dc/dx = y*b = 4*7 = 28 and dc/dy = x*b = 3*7 = 21
+    c.backward()
 
-    assert x.grad()[0] == 40.0
-    assert y.grad()[0] == 33.0
-
+    assert x.grad()[0] == 40.0  # dc/dx = 2*x*y + y^2 = 40
+    assert y.grad()[0] == 33.0  # dc/dy = 2*x*y + x^2 = 33
     x.zero_grad()
     y.zero_grad()
 

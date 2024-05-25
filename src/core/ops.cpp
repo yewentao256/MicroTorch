@@ -87,8 +87,8 @@ inline Tensor wrap_scalar_to_tensor(const data_t scalar, const Device& device) {
 struct AddNode : public FunctionNode<AddNode> {
   static std::vector<Tensor> forward(Context& ctx, const Tensor& a,
                                      const Tensor& b) {
-    ctx.data.emplace(
-        "a", a);  // TODO: maybe we can save as a class instance variable
+    // TODO: maybe we can save as a class instance variable
+    ctx.data.emplace("a", a);
     ctx.data.emplace("b", b);
     TensorIterator iter;
     Tensor out;
