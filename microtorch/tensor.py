@@ -2,6 +2,7 @@
 Copyright (c) 2022-2023 yewentao
 Licensed under the MIT License.
 """
+
 from __future__ import annotations
 from typing import Union
 import _microtorch
@@ -16,14 +17,12 @@ class Tensor(_microtorch.Tensor):
 
         elif isinstance(data, (list, tuple)):
             if isinstance(data[0], (list, tuple)):
-                raise ValueError(
-                    "Unsupported multidimension data initialization now")
+                raise ValueError("Unsupported multidimension data initialization now")
             else:
                 super().__init__(data, *args, **kwargs)
 
         else:
-            raise ValueError(
-                f"Unsupported type {type(data)} for Tensor initialization")
+            raise ValueError(f"Unsupported type {type(data)} for Tensor initialization")
 
     def __repr__(self) -> str:
         return self.str()
@@ -31,13 +30,13 @@ class Tensor(_microtorch.Tensor):
     def __getitem__(self, index: Union[tuple, float]) -> float:
         if isinstance(index, tuple):
             return super().__getitem__(index)
-        return super().__getitem__((index, ))
+        return super().__getitem__((index,))
 
     def __setitem__(self, index: Union[tuple, float], value: float) -> None:
         if isinstance(index, tuple):
             super().__setitem__(index, value)
         else:
-            super().__setitem__((index, ), value)
+            super().__setitem__((index,), value)
 
     def __neg__(self) -> Tensor:
         return Tensor(super().__neg__())
@@ -121,32 +120,33 @@ def _wrap_scalar_to_list(obj: Union[list, int, float]) -> list:
     return obj
 
 
-def empty(size: Union[list, int, float], device: str = 'cpu',
-          requires_grad: bool = False) -> Tensor:
-    return Tensor(_microtorch.empty(
-        _wrap_scalar_to_list(size), device, requires_grad))
+def empty(
+    size: Union[list, int, float], device: str = "cpu", requires_grad: bool = False
+) -> Tensor:
+    return Tensor(_microtorch.empty(_wrap_scalar_to_list(size), device, requires_grad))
 
 
-def zeros(size: Union[list, int, float], device: str = 'cpu',
-          requires_grad: bool = False) -> Tensor:
-    return Tensor(_microtorch.zeros(
-        _wrap_scalar_to_list(size), device, requires_grad))
+def zeros(
+    size: Union[list, int, float], device: str = "cpu", requires_grad: bool = False
+) -> Tensor:
+    return Tensor(_microtorch.zeros(_wrap_scalar_to_list(size), device, requires_grad))
 
 
-def ones(size: Union[list, int, float], device: str = 'cpu',
-         requires_grad: bool = False) -> Tensor:
-    return Tensor(_microtorch.ones(
-        _wrap_scalar_to_list(size), device, requires_grad))
+def ones(
+    size: Union[list, int, float], device: str = "cpu", requires_grad: bool = False
+) -> Tensor:
+    return Tensor(_microtorch.ones(_wrap_scalar_to_list(size), device, requires_grad))
 
 
-def rand(size: Union[list, int, float], device: str = 'cpu',
-         requires_grad: bool = False) -> Tensor:
-    return Tensor(_microtorch.rand(
-        _wrap_scalar_to_list(size), device, requires_grad))
+def rand(
+    size: Union[list, int, float], device: str = "cpu", requires_grad: bool = False
+) -> Tensor:
+    return Tensor(_microtorch.rand(_wrap_scalar_to_list(size), device, requires_grad))
 
 
-def sum(tensor: Tensor, dims: Union[list[int], int, None] = None,
-        keep_dim: bool = False) -> Tensor:
+def sum(
+    tensor: Tensor, dims: Union[list[int], int, None] = None, keep_dim: bool = False
+) -> Tensor:
     if dims is None:
         return Tensor(_microtorch.sum(tensor))
     else:

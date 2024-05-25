@@ -8,5 +8,15 @@ from .optimizer import SGDOptimizer
 from .graph import AutoGradGuard
 from . import cuda
 
-__all__ = ['empty', 'rand', 'ones', 'zeros', 'Tensor', 'AutoGradGuard',
-           'square', 'sum', 'SGDOptimizer', 'cuda']
+__all__ = [
+    "empty",
+    "rand",
+    "ones",
+    "zeros",
+    "Tensor",
+    "AutoGradGuard",
+    "square",
+    "sum",
+    "SGDOptimizer",
+    "cuda",
+]

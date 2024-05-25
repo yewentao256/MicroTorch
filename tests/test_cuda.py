@@ -15,24 +15,23 @@ def test_cuda() -> None:
 
     a = microtorch.ones(5).cuda()
     a += 1
-    assert a[2] == 2    # inplace add
-    b = microtorch.Tensor([1, 2, 3, 4, 5], device='cuda')
+    assert a[2] == 2  # inplace add
+    b = microtorch.Tensor([1, 2, 3, 4, 5], device="cuda")
 
     a.fill_(3)  # fill_
-    assert a[3] == 3    # index_get
+    assert a[3] == 3  # index_get
 
-    assert (a + b)[0] == 4       # add
+    assert (a + b)[0] == 4  # add
 
-    assert (a - b)[1] == 1       # sub
-    assert (a * b)[4] == 15      # mul
-    assert (a * 3)[2] == 9       # mul scalar
-    assert (
-        a / b).equal(microtorch.Tensor([3, 1.5, 1, 0.75, 0.6], device="cuda"))
+    assert (a - b)[1] == 1  # sub
+    assert (a * b)[4] == 15  # mul
+    assert (a * 3)[2] == 9  # mul scalar
+    assert (a / b).equal(microtorch.Tensor([3, 1.5, 1, 0.75, 0.6], device="cuda"))
 
     c = microtorch.sum(microtorch.square(b))  # square and sum
-    assert c[0] == 55       # 1+4+9+16+25 = 55
+    assert c[0] == 55  # 1+4+9+16+25 = 55
 
-    d = c.clone()   # clone
+    d = c.clone()  # clone
     assert d[0] == 55
 
     f = a == b  # equal
@@ -46,7 +45,7 @@ def test_big_cuda_tensor() -> None:
     t = microtorch.rand([2, 1024, 1024, 1024], "cuda")  # 8GB tensor
     t.fill_(100)
     assert t[0, 0, 0, 0] == 100
-    
+
 
 def test_cuda_and_cpu_tensor() -> None:
     if not microtorch.cuda.is_cuda_available():
@@ -56,7 +55,6 @@ def test_cuda_and_cpu_tensor() -> None:
         assert False, "cuda tensor and cpu tensor should raise an error"
     except Exception:
         assert True
-    
 
 
 if __name__ == "__main__":

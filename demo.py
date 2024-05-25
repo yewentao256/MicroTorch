@@ -30,10 +30,10 @@ def test_main(device: str = "cpu") -> None:
         loss = microtorch.sum(microtorch.square(prediction - target))
         loss.backward()
         optimizer.step()
-        print(f'Iter: {i}, Loss: {loss[0]}')
+        print(f"Iter: {i}, Loss: {loss[0]}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     device = "cuda" if microtorch.cuda.is_cuda_available() else "cpu"
     print(f"using `{device}` to test main")
     test_main(device)
