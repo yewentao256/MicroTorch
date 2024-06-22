@@ -254,10 +254,6 @@ void gpu_kernel(TensorIterator& iter, const func_t& f) {
 
   int64_t numel = iter.numel();
 
-  // TODO: vectorized_kernel
-  //   if (iter.is_contiguous()) {
-  //     return launch_vectorized_kernel(numel, f, tensor_ptrs);
-  //   }
   auto offset_calc = make_offset_calculator<traits::num_args + 1>(iter);
   constexpr int unroll_factor = sizeof(rtype) >= 4 ? 2 : 4;
   launch_legacy_kernel<128, unroll_factor>(numel, [=] HOST_DEVICE(int idx) {
