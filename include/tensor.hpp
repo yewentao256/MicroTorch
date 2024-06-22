@@ -13,17 +13,22 @@
 #include <sstream>
 
 #include "array.hpp"
+#include "arrayRef.hpp"
+#include "smallVector.hpp"
 #include "storage.hpp"
 
 namespace microtorch {
+
+using StrideVector = SmallVector<int64_t, 6>;
 
 struct Edge;
 struct Tensor;
 
 struct TensorImpl {
  private:
+  // TODO: using SmallVector instead of std::vector 
   IntArrayRef shape_;
-  IntArrayRef stride_;
+  StrideVector stride_;
   Storage storage_;
 
   bool requires_grad_;
@@ -38,7 +43,7 @@ struct TensorImpl {
                       bool requires_grad, const data_t* data = nullptr,
                       int64_t offset = 0);
   explicit TensorImpl(const Storage& storage, const IntArrayRef& shape,
-                      const IntArrayRef& stride, Device device,
+                      IntMArrayRef stride, Device device,
                       bool requires_grad, int64_t offset = 0);
 
   ~TensorImpl() = default;
@@ -46,7 +51,7 @@ struct TensorImpl {
   // properties
   int64_t offset() const { return offset_; }
   int64_t ndim() const { return shape_.size(); }
-  const IntArrayRef& stride() { return stride_; }
+  IntMArrayRef stride() { return stride_; }
   const IntArrayRef& shape() { return shape_; }
   data_t* data() { return storage_.data(); }
   Device device() const { return storage_.device(); }
@@ -98,7 +103,7 @@ struct Tensor {
   // properties
   int64_t offset() const { return impl_->offset(); }
   int64_t ndim() const { return impl_->ndim(); }
-  const IntArrayRef& stride() const { return impl_->stride(); }
+  IntMArrayRef stride() const { return impl_->stride(); }
   data_t* data_ptr() const { return impl_->data(); };
   const std::shared_ptr<TensorImpl>& impl() const { return impl_; }
   int64_t numel() const { return impl_->numel(); }
@@ -155,7 +160,7 @@ struct Tensor {
   int64_t element_size() const { return sizeof(data_t); }
 
   // Note: you need to be careful when you this function to view a tensor.
-  Tensor as_strided(const IntArrayRef& shape, const IntArrayRef& stride,
+  Tensor as_strided(const IntArrayRef& shape, IntMArrayRef stride,
                     int64_t offset = 0) const;
 };
 

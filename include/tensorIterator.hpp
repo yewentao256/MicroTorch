@@ -5,7 +5,6 @@
 #pragma once
 #include <algorithm>
 
-#include "array.hpp"
 #include "arrayRef.hpp"
 #include "exception.hpp"
 #include "funcRef.hpp"
@@ -16,7 +15,6 @@
 namespace microtorch {
 
 constexpr int64_t GRAIN_SIZE = 32768;
-using StrideVector = SmallVector<int64_t, 6>;
 using DimVector = SmallVector<int64_t, 6>;
 
 struct OperandInfo {
@@ -217,7 +215,7 @@ struct TensorIterator {
 
   // The operands of the TensorIterator
   // Note: The first operand is the output.
-  ArrayRef<OperandInfo> operands_;
+  SmallVector<OperandInfo> operands_;
   int64_t num_outputs_ = 0;
   int64_t num_inputs_ = 0;
 

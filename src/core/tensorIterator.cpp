@@ -11,7 +11,7 @@ namespace {
 // `output.stride_bytes` = [4, 256], `input.stride_bytes` = [80, 4] the result
 // is [4, 80, 256, 4]
 inline void get_strides_bytes(int64_t* strides_bytes,
-                              ArrayRef<OperandInfo> operands, int64_t ndim) {
+                              SmallVector<OperandInfo> operands, int64_t ndim) {
   for (const auto dim : irange(ndim)) {
     for (const auto arg : irange(operands.size())) {
       *strides_bytes++ = operands[arg].stride_bytes[dim];

@@ -18,7 +18,7 @@ TensorImpl::TensorImpl(const IntArrayRef& shape, Device device,
       offset_(offset) {}
 
 TensorImpl::TensorImpl(const Storage& storage, const IntArrayRef& shape,
-                       const IntArrayRef& stride, Device device,
+                       IntMArrayRef stride, Device device,
                        bool requires_grad, int64_t offset)
     : shape_(shape),
       stride_(stride),
@@ -160,7 +160,7 @@ Tensor& Tensor::fill_(const data_t value) {
 std::string Tensor::str() const { return print_with_size(*this); }
 void Tensor::backward() { ::microtorch::backward(*this); }
 
-Tensor Tensor::as_strided(const IntArrayRef& shape, const IntArrayRef& stride,
+Tensor Tensor::as_strided(const IntArrayRef& shape, IntMArrayRef stride,
                           int64_t offset) const {
   auto new_impl = std::make_shared<TensorImpl>(impl_->storage(), shape, stride,
                                                impl_->device(),
