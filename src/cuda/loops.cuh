@@ -134,12 +134,12 @@ struct IntDivider<unsigned int> {
   unsigned int shift;    // Shift amounts.
 };
 
-template <int NARGS>
+template <int num_tensors>
 struct OffsetCalculator {
   // The offset for each argument. Wrapper around fixed-size array.
   // On CUDA, zero sized array is not allowed, so when we are handling nullary
   // operators, we need to create a size 1 offset to avoid compiler failure.
-  using offset_type = Array<uint32_t, std::max<int>(NARGS, 1)>;
+  using offset_type = Array<uint32_t, std::max<int>(num_tensors, 1)>;
 
   OffsetCalculator(int dims, const int64_t* sizes,
                    const int64_t* const* strides)
@@ -147,7 +147,7 @@ struct OffsetCalculator {
     TORCH_CHECK(dims <= MAX_DIMS, "tensor has too many (>", MAX_DIMS, ") dims");
     for (int i = 0; i < dims; i++) {
       sizes_[i] = IntDivider<uint32_t>(sizes[i]);
-      for (int arg = 0; arg < NARGS; arg++) {
+      for (int arg = 0; arg < num_tensors; arg++) {
         strides_[i][arg] = strides[arg][i];
       }
     }
@@ -156,7 +156,7 @@ struct OffsetCalculator {
   HOST_DEVICE offset_type get(uint32_t linear_idx) const {
     offset_type offsets;
 
-    for (int arg = 0; arg < NARGS; arg++) {
+    for (int arg = 0; arg < num_tensors; arg++) {
       offsets[arg] = 0;
     }
 
@@ -165,7 +165,7 @@ struct OffsetCalculator {
       auto divmod = sizes_[dim].divmod(linear_idx);
       linear_idx = divmod.div;
 
-      for (int arg = 0; arg < NARGS; arg++) {
+      for (int arg = 0; arg < num_tensors; arg++) {
         offsets[arg] += divmod.mod * strides_[dim][arg];
       }
     }
@@ -174,29 +174,31 @@ struct OffsetCalculator {
 
   int dims_;
   IntDivider<uint32_t> sizes_[MAX_DIMS];
-  uint32_t strides_[MAX_DIMS][std::max<int>(NARGS, 1)];
+  uint32_t strides_[MAX_DIMS][std::max<int>(num_tensors, 1)];
 };
 
 // Make an OffsetCalculator with stride_bytes
-template <int N>
-static OffsetCalculator<N> make_offset_calculator(const TensorIterator& iter) {
-  TORCH_INTERNAL_ASSERT(N <= iter.ntensors());
-  std::array<const int64_t*, N> strides;
-  for (int i = 0; i < N; i++) {
+template <int num_tensors>
+static OffsetCalculator<num_tensors> make_offset_calculator(
+    const TensorIterator& iter) {
+  TORCH_INTERNAL_ASSERT(num_tensors <= iter.ntensors());
+  std::array<const int64_t*, num_tensors> strides;
+  for (int i = 0; i < num_tensors; i++) {
     strides[i] = iter.strides(i).data();
   }
-  return OffsetCalculator<N>(iter.ndim(), iter.shape().data(), strides.data());
+  return OffsetCalculator<num_tensors>(iter.ndim(), iter.shape().data(),
+                                       strides.data());
 }
 
-template <int nt, int vt, typename func_t>
-__launch_bounds__((MAX_THREADS_PER_BLOCK((nt))),
-                  (MIN_BLOCKS_PER_SM((nt), (4)))) __global__
+template <int num_threads, int num_per_thread, typename func_t>
+__launch_bounds__((MAX_THREADS_PER_BLOCK((num_threads))),
+                  (MIN_BLOCKS_PER_SM((num_threads), (4)))) __global__
     void elementwise_kernel(int N, func_t f) {
-  int idx = nt * vt * blockIdx.x + threadIdx.x;
-  for (int i = 0; i < vt; i++) {
+  int idx = num_threads * num_per_thread * blockIdx.x + threadIdx.x;
+  for (int i = 0; i < num_per_thread; i++) {
     if (idx < N) {
       f(idx);
-      idx += nt;
+      idx += num_threads;
     }
   }
 }
@@ -222,15 +224,14 @@ HOST_DEVICE typename traits::result_type invoke(const func_t& f,
   return invoke_impl<traits>(f, data, strides, Indices{});
 }
 
-template <int nt, int vt, typename func_t>
+template <int num_threads, int num_per_thread, typename func_t>
 static void launch_legacy_kernel(int64_t N, const func_t& f) {
   TORCH_INTERNAL_ASSERT(N >= 0 && N <= std::numeric_limits<int32_t>::max());
   if (N == 0) return;
-  dim3 block(nt);
-  dim3 grid((N + block.x * vt - 1) / (block.x * vt));
-  // TODO: stream management
-  // auto stream = getCurrentCUDAStream();
-  elementwise_kernel<nt, vt, func_t><<<grid, block, 0>>>(N, f);
+  dim3 block(num_threads);
+  dim3 grid((N + block.x * num_per_thread - 1) / (block.x * num_per_thread));
+  elementwise_kernel<num_threads, num_per_thread, func_t>
+      <<<grid, block, 0>>>(N, f);
   CUDA_ERROR_CHECK();
 }
 
@@ -255,8 +256,8 @@ void gpu_kernel(TensorIterator& iter, const func_t& f) {
   int64_t numel = iter.numel();
 
   auto offset_calc = make_offset_calculator<traits::num_args + 1>(iter);
-  constexpr int unroll_factor = sizeof(rtype) >= 4 ? 2 : 4;
-  launch_legacy_kernel<128, unroll_factor>(numel, [=] HOST_DEVICE(int idx) {
+  constexpr int num_per_thread = sizeof(rtype) >= 4 ? 2 : 4;
+  launch_legacy_kernel<128, num_per_thread>(numel, [=] HOST_DEVICE(int idx) {
     auto offsets = offset_calc.get(idx);
     rtype* out = (rtype*)(tensor_ptrs[0] + offsets[0]);
     *out = invoke(f, &tensor_ptrs.data[1], &offsets.data[1]);
